@@ -1,0 +1,85 @@
+{
+  "model_configs": {
+    "small": {
+      "d_model": 256,
+      "num_heads": 8,
+      "num_encoder_layers": 4,
+      "num_decoder_layers": 4,
+      "d_ff": 1024,
+      "dropout": 0.1
+    },
+    "base": {
+      "d_model": 512,
+      "num_heads": 8,
+      "num_encoder_layers": 6,
+      "num_decoder_layers": 6,
+      "d_ff": 2048,
+      "dropout": 0.1
+    },
+    "large": {
+      "d_model": 768,
+      "num_heads": 12,
+      "num_encoder_layers": 8,
+      "num_decoder_layers": 8,
+      "d_ff": 3072,
+      "dropout": 0.1
+    }
+  },
+  "training_configs": {
+    "quick": {
+      "batch_size": 16,
+      "num_epochs": 5,
+      "learning_rate": 0.0001,
+      "warmup_steps": 1000
+    },
+    "standard": {
+      "batch_size": 32,
+      "num_epochs": 20,
+      "learning_rate": 0.0001,
+      "warmup_steps": 4000
+    },
+    "extensive": {
+      "batch_size": 64,
+      "num_epochs": 50,
+      "learning_rate": 0.0001,
+      "warmup_steps": 8000
+    }
+  },
+  "decoding_configs": {
+    "greedy": {
+      "strategy": "greedy"
+    },
+    "beam_search_small": {
+      "strategy": "beam_search",
+      "beam_size": 2
+    },
+    "beam_search_medium": {
+      "strategy": "beam_search",
+      "beam_size": 4
+    },
+    "beam_search_large": {
+      "strategy": "beam_search",
+      "beam_size": 8
+    },
+    "top_k_conservative": {
+      "strategy": "top_k",
+      "top_k": 20,
+      "temperature": 0.8
+    },
+    "top_k_standard": {
+      "strategy": "top_k",
+      "top_k": 40,
+      "temperature": 1.0
+    },
+    "top_k_creative": {
+      "strategy": "top_k",
+      "top_k": 80,
+      "temperature": 1.2
+    }
+  },
+  "positional_encodings": [
+    "rope",
+    "relative_bias",
+    "sinusoidal"
+  ]
+}

@@ -1,0 +1,6 @@
+torch>=1.9.0
+matplotlib>=3.3.0
+seaborn>=0.11.0
+numpy>=1.19.0
+tqdm>=4.60.0
+sacrebleu>=2.0.0
