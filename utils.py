@@ -48,21 +48,36 @@ class Vocabulary:
     def get_word(self, idx):
         return self.idx2word.get(idx, self.UNK_TOKEN)
 
-def create_vocabulary(sentences: List[str], min_freq: int = 2) -> Vocabulary:
-    """Create vocabulary from sentences"""
+def create_vocabulary(sentences: List[str], vocab_size: int = 10000, min_freq: int = 2) -> Vocabulary:
+    """Create vocabulary from sentences with proper size limiting"""
     vocab = Vocabulary()
 
     # Count words
     for sentence in sentences:
         vocab.add_sentence(sentence.lower().strip())
 
-    # Filter by minimum frequency
+    # Create filtered vocabulary with size limit
     filtered_vocab = Vocabulary()
-    for word, count in vocab.word_count.items():
-        if count >= min_freq or word in [vocab.PAD_TOKEN, vocab.SOS_TOKEN,
-                                        vocab.EOS_TOKEN, vocab.UNK_TOKEN]:
-            filtered_vocab.add_word(word)
 
+    # Always add special tokens first
+    special_tokens = [vocab.PAD_TOKEN, vocab.SOS_TOKEN, vocab.EOS_TOKEN, vocab.UNK_TOKEN]
+    for token in special_tokens:
+        filtered_vocab.add_word(token)
+
+    # Sort words by frequency (most frequent first)
+    word_freq_pairs = [(word, count) for word, count in vocab.word_count.items()
+                       if word not in special_tokens and count >= min_freq]
+    word_freq_pairs.sort(key=lambda x: x[1], reverse=True)
+
+    # Add words up to vocab_size limit
+    words_added = len(special_tokens)  # Start with special tokens count
+    for word, count in word_freq_pairs:
+        if words_added >= vocab_size:
+            break
+        filtered_vocab.add_word(word)
+        words_added += 1
+
+    print(f"   Created vocabulary: {len(filtered_vocab)} words (target: {vocab_size}, min_freq: {min_freq})")
     return filtered_vocab
 
 def load_data(en_file: str, fi_file: str) -> Tuple[List[str], List[str]]:
@@ -181,6 +196,17 @@ class TransformerDataset(torch.utils.data.Dataset):
         tgt_output = tgt_indices[1:]  # Remove first token (usually <SOS>)
 
         return torch.tensor(src_indices), torch.tensor(tgt_input), torch.tensor(tgt_output)
+
+    def collate_fn(self, batch):
+        """Collate function for DataLoader"""
+        src_batch, tgt_input_batch, tgt_output_batch = zip(*batch)
+
+        # Stack tensors
+        src_batch = torch.stack(src_batch)
+        tgt_input_batch = torch.stack(tgt_input_batch)
+        tgt_output_batch = torch.stack(tgt_output_batch)
+
+        return src_batch, tgt_input_batch, tgt_output_batch
 
 def calculate_bleu(predictions: List[str], references: List[str]) -> float:
     """Calculate BLEU score"""
