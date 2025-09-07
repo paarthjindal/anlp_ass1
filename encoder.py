@@ -24,7 +24,7 @@ class MultiHeadAttention(nn.Module):
         """Compute scaled dot-product attention"""
         batch_size, num_heads, seq_len, d_k = Q.size()
 
-        # Compute attention scores
+        # Compute attention scores // our main attention formula
         scores = torch.matmul(Q, K.transpose(-2, -1)) / math.sqrt(d_k)
 
         # Add positional bias if provided (for relative position encoding)
@@ -68,7 +68,7 @@ class RotaryPositionalEmbedding(nn.Module):
         super(RotaryPositionalEmbedding, self).__init__()
         self.d_model = d_model
 
-        # Create position encodings
+        # Create position encodings - only use half the dimensions for RoPE
         inv_freq = 1.0 / (10000 ** (torch.arange(0, d_model, 2).float() / d_model))
         self.register_buffer('inv_freq', inv_freq)
 
@@ -88,11 +88,48 @@ class RotaryPositionalEmbedding(nn.Module):
             x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
             return torch.cat((-x2, x1), dim=-1)
 
+        # Expand sin and cos to match query/key dimensions
+        # sin, cos have shape [seq_len, d_model//2]
+        # we need to expand them to [batch_size, num_heads, seq_len, d_k]
+        batch_size, num_heads, seq_len, d_k = q.shape
+
+        # Repeat sin and cos for each head and batch
+        sin = sin.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1)  # [B, H, S, d_k//2]
+        cos = cos.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1)  # [B, H, S, d_k//2]
+
+        # Duplicate to match full d_k dimension
+        sin = torch.cat([sin, sin], dim=-1)  # [B, H, S, d_k]
+        cos = torch.cat([cos, cos], dim=-1)  # [B, H, S, d_k]
+
         # Apply rotary embeddings
-        q_embed = (q * cos.unsqueeze(-2)) + (rotate_half(q) * sin.unsqueeze(-2))
-        k_embed = (k * cos.unsqueeze(-2)) + (rotate_half(k) * sin.unsqueeze(-2))
+        q_embed = (q * cos) + (rotate_half(q) * sin)
+        k_embed = (k * cos) + (rotate_half(k) * sin)
 
         return q_embed, k_embed
+
+    def apply_rotary_pos_emb_single(self, x, sin, cos):
+        """Apply rotary positional embeddings to a single tensor"""
+        def rotate_half(x):
+            x1, x2 = x[..., :x.shape[-1]//2], x[..., x.shape[-1]//2:]
+            return torch.cat((-x2, x1), dim=-1)
+
+        # Expand sin and cos to match input dimensions
+        # sin, cos have shape [seq_len, d_model//2]
+        # we need to expand them to [batch_size, num_heads, seq_len, d_k]
+        batch_size, num_heads, seq_len, d_k = x.shape
+
+        # Repeat sin and cos for each head and batch
+        sin = sin.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1)  # [B, H, S, d_k//2]
+        cos = cos.unsqueeze(0).unsqueeze(0).expand(batch_size, num_heads, -1, -1)  # [B, H, S, d_k//2]
+
+        # Duplicate to match full d_k dimension
+        sin = torch.cat([sin, sin], dim=-1)  # [B, H, S, d_k]
+        cos = torch.cat([cos, cos], dim=-1)  # [B, H, S, d_k]
+
+        # Apply rotary embeddings
+        x_embed = (x * cos) + (rotate_half(x) * sin)
+
+        return x_embed
 
 class RelativePositionBias(nn.Module):
     def __init__(self, num_heads, max_seq_len=512):
@@ -127,15 +164,20 @@ class RoPEMultiHeadAttention(MultiHeadAttention):
 
     def forward(self, query, key, value, mask=None):
         batch_size, seq_len, d_model = query.size()
+        key_seq_len = key.size(1)
 
         # Linear projections
         Q = self.W_q(query).view(batch_size, seq_len, self.num_heads, self.d_k).transpose(1, 2)
-        K = self.W_k(key).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
-        V = self.W_v(value).view(batch_size, -1, self.num_heads, self.d_k).transpose(1, 2)
+        K = self.W_k(key).view(batch_size, key_seq_len, self.num_heads, self.d_k).transpose(1, 2)
+        V = self.W_v(value).view(batch_size, key_seq_len, self.num_heads, self.d_k).transpose(1, 2)
 
-        # Apply RoPE
-        sin, cos = self.rope(query)
-        Q, K = self.rope.apply_rotary_pos_emb(Q, K, sin, cos)
+        # Apply RoPE - generate sin/cos for both query and key lengths
+        sin_q, cos_q = self.rope(query)  # For query sequence
+        sin_k, cos_k = self.rope(key)    # For key sequence
+
+        # Apply RoPE to Q and K separately with their respective sin/cos
+        Q = self.rope.apply_rotary_pos_emb_single(Q, sin_q, cos_q)
+        K = self.rope.apply_rotary_pos_emb_single(K, sin_k, cos_k)
 
         # Apply attention
         context, attention_weights = self.scaled_dot_product_attention(Q, K, V, mask)

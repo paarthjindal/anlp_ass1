@@ -127,9 +127,11 @@ class Transformer(nn.Module):
         tgt_mask = tgt_pad_mask & tgt_sub_mask
         return tgt_mask
 
-    def forward(self, src, tgt):
-        src_mask = self.make_src_mask(src)
-        tgt_mask = self.make_tgt_mask(tgt)
+    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
+        if src_mask is None:
+            src_mask = self.make_src_mask(src)
+        if tgt_mask is None:
+            tgt_mask = self.make_tgt_mask(tgt)
 
         encoder_output = self.encoder(src, src_mask)
         decoder_output = self.decoder(tgt, encoder_output, src_mask, tgt_mask)

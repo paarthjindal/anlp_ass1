@@ -140,11 +140,21 @@ def create_padding_mask(seq, pad_idx):
     """Create padding mask for sequences"""
     return (seq != pad_idx).unsqueeze(1).unsqueeze(2)
 
-def create_look_ahead_mask(size):
+def create_look_ahead_mask(seq, pad_idx):
     """Create look-ahead mask for decoder"""
-    mask = torch.triu(torch.ones(size, size)) == 1
-    mask = mask.transpose(0, 1)
-    return mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
+    seq_len = seq.size(1)
+
+    # Create padding mask
+    pad_mask = (seq != pad_idx).unsqueeze(1).unsqueeze(2)  # [batch, 1, 1, seq_len]
+
+    # Create look-ahead mask
+    look_ahead_mask = torch.tril(torch.ones(seq_len, seq_len, device=seq.device)).bool()
+    look_ahead_mask = look_ahead_mask.unsqueeze(0).unsqueeze(0)  # [1, 1, seq_len, seq_len]
+
+    # Combine both masks
+    mask = pad_mask & look_ahead_mask
+
+    return mask
 
 class TransformerDataset(torch.utils.data.Dataset):
     def __init__(self, src_sentences, tgt_sentences, src_vocab, tgt_vocab, max_length=128):
@@ -164,7 +174,13 @@ class TransformerDataset(torch.utils.data.Dataset):
         src_indices = sentence_to_indices(src_sentence, self.src_vocab, self.max_length)
         tgt_indices = sentence_to_indices(tgt_sentence, self.tgt_vocab, self.max_length)
 
-        return torch.tensor(src_indices), torch.tensor(tgt_indices)
+        # For transformer training, we need:
+        # - tgt_input: target sequence for decoder input (includes <SOS>)
+        # - tgt_output: target sequence for loss calculation (includes <EOS>)
+        tgt_input = tgt_indices[:-1]  # Remove last token (usually <EOS>)
+        tgt_output = tgt_indices[1:]  # Remove first token (usually <SOS>)
+
+        return torch.tensor(src_indices), torch.tensor(tgt_input), torch.tensor(tgt_output)
 
 def calculate_bleu(predictions: List[str], references: List[str]) -> float:
     """Calculate BLEU score"""
@@ -212,12 +228,23 @@ class LabelSmoothing(nn.Module):
         self.true_dist = None
 
     def forward(self, x, target):
+        # x should be logits [batch_size, seq_len, vocab_size]
+        # target should be indices [batch_size, seq_len]
+
+        # Reshape for processing
+        batch_size, seq_len, vocab_size = x.size()
+        x = x.view(-1, vocab_size)  # [batch_size * seq_len, vocab_size]
+        target = target.view(-1)    # [batch_size * seq_len]
+
+        # Apply log softmax to get log probabilities
+        x = F.log_softmax(x, dim=1)
+
         assert x.size(1) == self.size
         true_dist = x.data.clone()
         true_dist.fill_(self.smoothing / (self.size - 2))
         true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
         true_dist[:, self.padding_idx] = 0
-        mask = torch.nonzero(target.data == self.padding_idx)
+        mask = torch.nonzero(target.data == self.padding_idx, as_tuple=False)
         if mask.dim() > 0:
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
         self.true_dist = true_dist
