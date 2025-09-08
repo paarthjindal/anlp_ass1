@@ -90,6 +90,76 @@ class LocalSentenceTester:
         print(f"🔧 Positional encoding: {self.config['pos_encoding_type']}")
         print("="*60)
 
+    def top_k_sampling_decode(self, logits, previous_tokens, step, k=50, p=0.9, temperature=1.0):
+        """
+        Clean top-k and nucleus sampling without word-specific tricks
+
+        Args:
+            logits: Raw model logits for next token prediction
+            previous_tokens: List of previously generated tokens
+            step: Current generation step
+            k: Number of top tokens to consider
+            p: Nucleus probability threshold
+            temperature: Temperature for softmax
+        """
+        # Get special token indices
+        unk_idx = self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)
+        eos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)
+        pad_idx = self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+
+        # Apply temperature
+        logits = logits / temperature
+
+        # Remove invalid tokens (UNK, PAD)
+        logits[unk_idx] = float('-inf')
+        logits[pad_idx] = float('-inf')
+
+        # Basic repetition prevention (only immediate repetition)
+        if len(previous_tokens) > 0:
+            last_token = previous_tokens[-1]
+            if last_token not in [eos_idx, pad_idx, unk_idx]:
+                logits[last_token] -= 2.0  # Mild penalty for immediate repetition
+
+        # Convert to probabilities
+        probs = F.softmax(logits, dim=-1)
+
+        # Top-k filtering
+        if k > 0:
+            top_k_probs, top_k_indices = torch.topk(probs, min(k, probs.size(-1)))
+            # Zero out probabilities outside top-k
+            filtered_probs = torch.zeros_like(probs)
+            filtered_probs.scatter_(-1, top_k_indices, top_k_probs)
+            probs = filtered_probs
+
+        # Nucleus (top-p) sampling
+        if p < 1.0:
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+            cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+            # Find cutoff index for nucleus sampling
+            cutoff_index = torch.where(cumulative_probs > p)[0]
+            if len(cutoff_index) > 0:
+                cutoff_index = cutoff_index[0].item()
+                # Zero out probabilities beyond the cutoff
+                sorted_probs[cutoff_index:] = 0
+                # Scatter back to original positions
+                probs = torch.zeros_like(probs)
+                probs.scatter_(-1, sorted_indices, sorted_probs)
+
+        # Renormalize probabilities
+        probs = probs / (probs.sum() + 1e-8)
+
+        # Sample from the distribution
+        if probs.sum() > 1e-6:
+            next_token = torch.multinomial(probs, 1).item()
+        else:
+            # Fallback to argmax if all probabilities are zero
+            logits[unk_idx] = float('-inf')
+            logits[pad_idx] = float('-inf')
+            next_token = torch.argmax(logits).item()
+
+        return next_token
+
     def sentence_to_indices(self, sentence, vocab, max_length=None):
         """Convert sentence to indices"""
         if max_length is None:
@@ -112,8 +182,8 @@ class LocalSentenceTester:
         return indices
 
     def translate_greedy(self, sentence, max_length=50, show_steps=False):
-        """Translate using greedy decoding"""
-        print(f"🔍 Greedy Decoding:")
+        """Translate using improved Top-K sampling (better than pure greedy)"""
+        print(f"🔍 Improved Top-K Sampling:")
         print(f"   Input: '{sentence}'")
 
         # Convert to indices
@@ -125,7 +195,7 @@ class LocalSentenceTester:
             # Encode
             encoder_output = self.model.encoder(src, src_mask)
 
-            # Decode step by step
+            # Decode step by step with improved sampling
             tgt_indices = [self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)]
 
             for step in range(max_length):
@@ -134,9 +204,11 @@ class LocalSentenceTester:
 
                 decoder_output = self.model.decoder(tgt, encoder_output, src_mask, tgt_mask)
 
-                # Get next token
+                # Get next token using improved Top-K sampling
                 next_token_logits = decoder_output[0, -1, :]
-                next_token = torch.argmax(next_token_logits).item()
+
+                # Use conservative parameters for "greedy" to get best single result
+                next_token = self.top_k_sampling_decode(next_token_logits, tgt_indices, step, k=15, p=0.8, temperature=0.8)
                 tgt_indices.append(next_token)
 
                 # Show intermediate steps
@@ -184,7 +256,23 @@ class LocalSentenceTester:
                     tgt_mask = create_look_ahead_mask(tgt, self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN))
 
                     decoder_output = self.model.decoder(tgt, encoder_output, src_mask, tgt_mask)
-                    log_probs = F.log_softmax(decoder_output[0, -1, :], dim=-1)
+                    logits = decoder_output[0, -1, :]
+
+                    # IMPORTANT: Filter out UNK and PAD tokens before beam search
+                    unk_idx = self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)
+                    pad_idx = self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+                    eos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)
+
+                    logits[unk_idx] = float('-inf')
+                    logits[pad_idx] = float('-inf')
+
+                    # Prevent immediate repetition in beam search too
+                    if len(beam) > 1:
+                        last_token = beam[-1]
+                        if last_token not in [eos_idx, pad_idx, unk_idx]:
+                            logits[last_token] -= 2.0
+
+                    log_probs = F.log_softmax(logits, dim=-1)
 
                     # Get top candidates
                     top_k_probs, top_k_indices = torch.topk(log_probs, beam_size)
@@ -203,8 +291,25 @@ class LocalSentenceTester:
                 if all(beam[-1] == self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN) for beam in beams):
                     break
 
-        # Return best beam
-        translation = indices_to_sentence(beams[0], self.tgt_vocab)
+        # Return best beam with length normalization
+        if beams:
+            # Normalize scores by length to prevent bias toward short sequences
+            normalized_scores = []
+            for i, beam in enumerate(beams):
+                length = len([t for t in beam if t not in [
+                    self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN),
+                    self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN),
+                    self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+                ]])
+                # Length normalization with slight bias toward longer sequences
+                normalized_score = beam_scores[i] / (length + 1e-6) if length > 0 else beam_scores[i]
+                normalized_scores.append((normalized_score, beam))
+
+            # Pick best normalized beam
+            best_beam = max(normalized_scores, key=lambda x: x[0])[1]
+            translation = indices_to_sentence(best_beam, self.tgt_vocab)
+        else:
+            translation = "Error: No valid beam found"
         print(f"   Output: '{translation}'")
         return translation
 
@@ -225,13 +330,13 @@ class LocalSentenceTester:
 
         if method == 'both':
             print("📊 Comparison:")
-            print(f"   Greedy: '{results['greedy']}'")
+            print(f"   Top-K:  '{results['greedy']}'")
             print(f"   Beam:   '{results['beam']}'")
 
             if results['greedy'] == results['beam']:
                 print("   ✅ Both methods agree!")
             else:
-                print("   ⚖️  Different results - beam search might be better")
+                print("   ⚖️  Different results - try both and pick the better one")
 
         print("="*60)
         return results

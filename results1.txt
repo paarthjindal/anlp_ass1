@@ -1,0 +1,116 @@
+# Model Configuration
+config = {
+    'pos_encoding_type': 'rope',        # 🔧 RoPE Positional Encoding
+    'd_model': 256,                     # Model dimension
+    'num_heads': 8,                     # Multi-head attention
+    'num_encoder_layers': 4,            # Encoder layers
+    'num_decoder_layers': 4,            # Decoder layers
+    'd_ff': 1024,                       # Feed-forward dimension
+    'max_seq_len': 128,                 # Maximum sequence length
+    'dropout': 0.2                      # Dropout rate
+}
+
+Decoding strategy balance top k
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: balanced
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: BALANCED
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: rope positional encoding
+⚙️  Parameters: 15,053,584
+🎯 Strategy: BALANCED
+================================================================================
+⚖️  Generating translations with balanced top-k (k=50, p=0.9)...
+Balanced: 100%|██████████| 10000/10000 [34:11<00:00,  4.87it/s]
+
+📝 Translation Examples (first 10):
+
+--- Example 1 ---
+Source (FI):  Tarkistuksen 12 on tarkoitus edelleen tehdä sel väksi, että nämä valtion tuet ovat viimeisiä, joita asian osaisille telakoille voidaan hyväksyä.
+Reference:    That is precisely why we believe in principle what we are doing today is a virtual abdication of parliamentary rights of review.
+Balanced    : we of their is the not for the european that the council to the single a of the and to by the council in the european is the single and the commission and be mr to be only
+
+--- Example 2 ---
+Source (FI):  Petosten vastainen yk sikkö, UCLAF, tekee hyvää ja menestyksekästä työtä.
+Reference:    objected to the Court of Auditors becoming involved in what is a strictly political matter.
+Balanced    : it is a of the european and for to be would in the commission of the of the european
+
+--- Example 3 ---
+Source (FI):  Lisätietoja saa Euroopan parlamentin jäseniltä tai henkilöiden, tavaroiden, palvelujen ja pääomien vapaa liikkuvuus
+Reference:    You may also seek any information you require from a member of the European Parliament or from the
+Balanced    : is - the commission in the european but should on from the i and that of the you of the community
+
+--- Example 4 ---
+Source (FI):  Kun ongelma otettiin esille maatalousministerien neuvostossa marraskuussa, komissaari Fischler lupasi "seurata kehitystä tarkoin".
+Reference:    When this problem was raised at the November CouncU of Agriculture Ministers, Commissioner Fischler agreed 'to keep a watchful eye on developments'.
+Balanced    : a of toe the european committee the with the at the of the not on the european
+
+--- Example 5 ---
+Source (FI):  Työpaikkojen luominen.
+Reference:    Next, job creation.
+Balanced    : the in a
+
+--- Example 6 ---
+Source (FI):  Voidaan tietenkin aina pohtia pikkuseikkoja, mutta on osittain brittien hallituksen myöntyvyyden ansiota, ettei asia ole enää kiistanalainen.
+Reference:    Of course, one can always argue about the finer details, but it is mainly thanks to the agreement of the new British Government that it is no longer a controversial issue.
+Balanced    : we i of the but in this and the an the member of the some and the for has are
+
+--- Example 7 ---
+Source (FI):  Kyseinen direktiivi ansaitsee kuitenkin tulla huomatuksi, enkä halua kieltää sitä, että tietyissä jäsenvaltioissa asiaa on edistetty. Useimmissa jäsenvaltiossa itsenäisten ammatin harjoittajien avustavat aviopuolisot ovat kuitenkin edelleen näkymättömiä työntekijöitä, joita ei oteta lukuun, vielä yli kymmenen vuotta kyseisen dkektiivin antamisen jälkeenkin.
+Reference:    I would not deny the fact toat progress has been made in some Member States, but, more than 10 years after the adoption of the directive, the majority of spouses participating in toe activities of the selfemployed are forgotten people, invisible workers.
+Balanced    : but a is as it has the european be this to the - and the an on the only a no be at the european of the not of not of - have of there to will be in have
+
+--- Example 8 ---
+Source (FI):  Toinen on kysymys siitä, miten hinnat ilmoitetaan, nimittäin kysymys hintojen merkitsemisestä tai hintojen ilmoittamisesta.
+Reference:    We have an amend ment here which also protects, I am very glad to say, those who are seUing products where the total price is not the unit price.
+Balanced    : the european and i the also this on the european for the which
+
+--- Example 9 ---
+Source (FI):  Kehotan myös ystäviäni äänestämään Fourçansin mietintöä vastaan, vaikka sydämeni vuotaa verta, kun ajattelen ystävääni Fourçansia.
+Reference:    I think it would have been harmful to grant broadcasting monopolies, for the sake of commercial and financial interest.
+Balanced    : that is it is in a the commission to the on the european on the commission has committee in the european
+
+--- Example 10 ---
+Source (FI):  Seuraavaksi on vuorossa tämän äänestyksen kolmas ja viimeinen kierros ehdokas Podestàsta.
+Reference:    President. - I shall be very pleased, Mr Elliott, to consult the Committee on the Rules of Procedure and put to them the proposal that you have made about whether the system should be changed.
+Balanced    : it is that the commission parliament of the have of the an with of the not of the commission and i with
+
+================================================================================
+📈 BLEU SCORE EVALUATION
+================================================================================
+🎯 BLEU Score (balanced): 0.0711
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0711
+  Exact Match:     0.00%
+  Word Accuracy:   2.12%
+  Avg Pred Length: 19.6 words
+  Avg Ref Length:  23.5 words
+
+🔍 TRANSLATION QUALITY ANALYSIS:
+  UNK tokens:      0/10000 (0.0%)
+  Empty outputs:   45/10000 (0.4%)
+  Very short:      355/10000 (3.5%)
+
+🏆 FINAL SUMMARY:
+  Strategy: BALANCED
+  Test sentences: 10,000
+  BLEU Score: 0.0711
+  Model quality: 🟡 Fair
+================================================================================
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/single_strategy_balanced_results.csv
+  📊 Summary: /kaggle/working/single_strategy_balanced_summary.json
+
+✅ Testing completed successfully!
+🎯 BLEU Score (balanced): 0.0711
+📊 Test Sentences: 10,000
+🎭 Strategy: BALANCED
