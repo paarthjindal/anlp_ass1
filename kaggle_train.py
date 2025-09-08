@@ -8,6 +8,7 @@ import os
 import sys
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
@@ -25,7 +26,55 @@ CODE_PATH = f"{KAGGLE_INPUT_BASE}/anlp-ass1"  # If you uploaded code separately
 # Add paths for imports
 sys.path.append(DATA_PATH)
 sys.path.append(CODE_PATH)
-sys.path.append("/kaggle/working")# Import your modules (assuming they're in your Kaggle input)
+sys.path.append("/kaggle/working")
+
+class LabelSmoothingLoss(nn.Module):
+    """
+    Label smoothing loss for better generalization in translation tasks.
+
+    Args:
+        classes: number of classes (vocabulary size)
+        smoothing: smoothing factor (0.0 = no smoothing, 0.1 = 10% smoothing)
+        ignore_index: index to ignore (padding token)
+    """
+    def __init__(self, classes, smoothing=0.1, ignore_index=-100):
+        super(LabelSmoothingLoss, self).__init__()
+        self.classes = classes
+        self.smoothing = smoothing
+        self.ignore_index = ignore_index
+        self.confidence = 1.0 - smoothing
+
+    def forward(self, pred, target):
+        """
+        Args:
+            pred: predictions (batch_size * seq_len, vocab_size)
+            target: true labels (batch_size * seq_len)
+        """
+        assert pred.size(1) == self.classes
+
+        true_dist = torch.zeros_like(pred)
+        true_dist.fill_(self.smoothing / (self.classes - 1))
+        true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
+
+        # Ignore padding tokens
+        if self.ignore_index >= 0:
+            true_dist[:, self.ignore_index] = 0
+            mask = (target == self.ignore_index).unsqueeze(1)
+            true_dist.masked_fill_(mask, 0.0)
+
+        # Calculate KL divergence
+        log_probs = F.log_softmax(pred, dim=1)
+        loss = -torch.sum(true_dist * log_probs, dim=1)
+
+        # Only average over non-ignored tokens
+        if self.ignore_index >= 0:
+            non_ignored = (target != self.ignore_index).float()
+            loss = loss * non_ignored
+            return loss.sum() / non_ignored.sum()
+        else:
+            return loss.mean()
+
+# Import your modules (assuming they're in your Kaggle input)
 try:
     from encoder import TransformerEncoder
     from decoder import TransformerDecoder, Transformer
@@ -71,12 +120,14 @@ def train_model():
         'dropout': 0.1,
         'pos_encoding_type': 'rope',  # or 'sinusoidal'
         'batch_size': 32,
-        'learning_rate': 1e-4,
-        'num_epochs': 5,
-        'warmup_steps': 4000,
+        'learning_rate': 2e-4,  # Increased from 1e-4 to 2e-4
+        'num_epochs': 10,  # Increased from 5 to 10
+        'warmup_steps': 2000,  # Reduced from 4000 to 2000
         'vocab_size': 10000,
         'save_every': 1000,
-        'eval_every': 500
+        'eval_every': 500,
+        'label_smoothing': 0.05,  # Reduced from 0.1 to 0.05 (5% smoothing)
+        'use_label_smoothing': False  # Try Cross Entropy instead of Label Smoothing
     }
 
     print("🚀 Starting Transformer Training on Kaggle")
@@ -177,7 +228,17 @@ def train_model():
     print(f"   Trainable parameters: {trainable_params:,}")
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss(ignore_index=tgt_vocab.get_idx(tgt_vocab.PAD_TOKEN))
+    if config['use_label_smoothing']:
+        print(f"🎯 Using Label Smoothing Loss (smoothing: {config['label_smoothing']})")
+        criterion = LabelSmoothingLoss(
+            classes=len(tgt_vocab),
+            smoothing=config['label_smoothing'],
+            ignore_index=tgt_vocab.get_idx(tgt_vocab.PAD_TOKEN)
+        )
+    else:
+        print("🎯 Using Cross Entropy Loss")
+        criterion = nn.CrossEntropyLoss(ignore_index=tgt_vocab.get_idx(tgt_vocab.PAD_TOKEN))
+
     optimizer = optim.Adam(model.parameters(), lr=config['learning_rate'], betas=(0.9, 0.98), eps=1e-9)
 
     # Learning rate scheduler
