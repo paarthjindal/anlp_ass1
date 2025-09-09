@@ -1,0 +1,191 @@
+    config = {
+        'd_model': 256,  # Reduced from 512 to 256 for easier training
+        'num_heads': 8,
+        'num_encoder_layers': 4,  # Reduced from 6 to 4
+        'num_decoder_layers': 4,  # Reduced from 6 to 4
+        'd_ff': 1024,  # Reduced from 2048 to 1024
+        'max_seq_len': 128,
+        'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
+        'pos_encoding_type': 'relative_bias',  # Changed from 'rope' to 'relative_bias'
+        'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
+        'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
+        'num_epochs': 15,  # Increased from 10 to 15 for more training time
+        'warmup_steps': 500,  # Reduced from 2000 to 500 for faster ramp-up
+        'vocab_size': 10000,
+        'save_every': 1000,
+        'eval_every': 200,  # More frequent evaluation
+        'label_smoothing': 0.0,  # Completely disabled
+        'use_label_smoothing': False,  # Ensure cross entropy is used
+        'weight_decay': 1e-4,  # Add weight decay for regularization
+        'gradient_clip': 0.5,  # Reduced gradient clipping
+        # Relative position bias specific parameters
+        'relative_attention_num_buckets': 32,  # Number of relative position buckets
+        'relative_attention_max_distance': 128,  # Maximum relative distance
+    }
+
+
+📁 Data path: /kaggle/input/anlp-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
+📥 Loading model from /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: relative_bias
+🔧 Relative attention buckets: 32
+🔧 Relative attention max distance: 128
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,078,064
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european parliament
+   Conservative: on the european parliament
+   Balanced:     at the on the european parliament
+   Creative:     in the also to of the european way
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european parliament
+   Conservative: it is
+   Balanced:     it is the community
+   Creative:     would european development
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european parliament
+   Conservative: i
+   Balanced:     are
+   Creative:     about i report debates
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european parliament
+   Conservative:
+   Balanced:     we no - to the european parliament
+   Creative:     there or not will take have which also at not
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european parliament
+   Conservative: in the european parliament
+   Balanced:     the commission's is
+   Creative:     it is also and
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european parliament
+   Conservative: i is the european an
+   Balanced:     these no from the not
+   Creative:     - i
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european parliament
+   Conservative: this is have the community of the commission
+   Balanced:     of the european by
+   Creative:     that the commission who of first
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european parliament
+   Conservative: a union has
+   Balanced:     i would you
+   Creative:     debates for transit
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+🔍 VOCABULARY DEBUG INFO:
+   UNK token: '<UNK>' (idx: 3)
+   SOS token: '<SOS>' (idx: 1)
+   EOS token: '<EOS>' (idx: 2)
+   PAD token: '<PAD>' (idx: 0)
+   Target vocab size: 10000
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: greedy
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: GREEDY
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: relative_bias positional encoding
+⚙️  Parameters: 15,078,064
+🎭 Strategy: GREEDY
+================================================================================
+⚡ Generating translations with Greedy decoding...
+Greedy Translation: 100%|██████████| 10000/10000 [19:07<00:00,  8.71it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Jos me haluamme kansalaistemme hyväksynnän, me emme mielestäni voi enää vain niellä sitä, että kansalaisten selän takana neuvotellaan niin, että me voimme vain nyökätä tai ravistaa päätämme, millä ei kuitenkaan ole mitään vaikutusta päätökseen!
+Reference:    The stage directions for this theatre of the absurd were, of course, set out in the Euratom Treaty. I think if we want our citizens to accept us, we can no longer allow agreements to be negotiated behind their backs, to which all we can do is nod or shake our heads, which has no effect on the final decision!
+Greedy      : the european parliament of the commission and the commission to the commission of the commission of the commission of the commission of the commission of the commission of the commission of the commission of the commission of the commission of the commission of the commission
+
+--- Example 2 ---
+Source (FI):  Sen Singaporen konferenssi osoitti selvästi.
+Reference:    The old state trade squabbles have now gone.
+Greedy      : the european parliament
+
+--- Example 3 ---
+Source (FI):  Haluaisin kertoa teille siitä alueellisen poliittisen ulottuvuuden heikkoudesta, jonka havaitsin ja josta olen erittäin pahoillani.
+Reference:    This measure makes it possible to carry out inspections at the port of disembarkation and apply sanctions up to a maximum of impounding the vessel if irregularities are found.
+Greedy      : the european parliament of the commission and the european parliament
+
+--- Example 4 ---
+Source (FI):  Johdanto
+Reference:    Introduction
+Greedy      : the european parliament
+
+--- Example 5 ---
+Source (FI):  WEU:n integroiminen EU: iin on ristiriidassa Ruotsin puolueettomuuspolitiikan kanssa, eikä sitä voida hy väksyä.
+Reference:    A lot more will have to be done at WTO level to combine policy on the envhonment, social standards and development policy to further liberalization.
+Greedy      : the european parliament of the commission and the commission to the commission
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (greedy): 0.0230
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0230
+  Exact Match:     0.00%
+  Word Accuracy:   2.62%
+  Avg Length:      18.9 words (ref: 23.0)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/greedy_test_results.csv
+  📊 Summary metrics: /kaggle/working/greedy_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (greedy): 0.0230
+📊 Test Sentences: 10,000
+🎭 Strategy: GREEDY

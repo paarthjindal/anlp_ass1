@@ -1,0 +1,177 @@
+
+ # Configuration - Simplified for better learning
+    config = {
+        'd_model': 256,  # Reduced from 512 to 256 for easier training
+        'num_heads': 8,
+        'num_encoder_layers': 4,  # Reduced from 6 to 4
+        'num_decoder_layers': 4,  # Reduced from 6 to 4
+        'd_ff': 1024,  # Reduced from 2048 to 1024
+        'max_seq_len': 128,
+        'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
+        'pos_encoding_type': 'rope',
+        'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
+        'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
+        'num_epochs': 10,  # Increased from 10 to 15 for more training time
+        'warmup_steps': 500,  # Reduced from 2000 to 500 for faster ramp-up
+        'vocab_size': 10000,
+        'save_every': 1000,
+        'eval_every': 200,  # More frequent evaluation
+        'label_smoothing': 0.0,  # Completely disabled
+        'use_label_smoothing': False,  # Ensure cross entropy is used
+        'weight_decay': 1e-4,  # Add weight decay for regularization
+        'gradient_clip': 0.5  # Reduced gradient clipping
+    }
+
+
+Decoding strategy Greedy
+
+
+📁 Data path: /kaggle/input/anlp-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+📥 Loading model from /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: rope
+🔧 Using RoPE (Rotary Position Embeddings)
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,053,584
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european
+   Conservative: i that the and to the european
+   Balanced:     of the
+   Creative:     the should
+   Beam:         <UNK>
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european
+   Conservative: it on the european which
+   Balanced:     debates of this
+   Creative:     i not
+   Beam:         <UNK>
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european
+   Conservative: but we
+   Balanced:     that the union to a
+   Creative:     am
+   Beam:         <UNK>
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european of the european
+   Conservative: the - are
+   Balanced:     on the which is should to the also of the very
+   Creative:     the structural report for the european to the very
+   Beam:         <UNK>
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european
+   Conservative: the european
+   Balanced:     that the commission
+   Creative:     the various there
+   Beam:         <UNK>
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european of the european
+   Conservative: we is the european in not to with of the commission
+   Balanced:     must the and in the
+   Creative:     in i must be them to make to like
+   Beam:         <UNK>
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european of the european
+   Conservative: the not to be of the european
+   Balanced:     the no and that that
+   Creative:     in and or the but of the -
+   Beam:         <UNK>
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european
+   Conservative: the european
+   Balanced:     i on the
+   Creative:     more that the council at in the european should are been
+   Beam:         <UNK>
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: greedy
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: GREEDY
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: rope positional encoding
+⚙️  Parameters: 15,053,584
+🎭 Strategy: GREEDY
+================================================================================
+⚡ Generating translations with Greedy decoding...
+Greedy Translation: 100%|██████████| 10000/10000 [21:45<00:00,  7.66it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Ottaen huomioon sen väärän tavan, jota komissio on noudattanut hyväksyessään laskuja, tuen esittelijän vaati musta tilinpäätöksen lykkäämisestä.
+Reference:    In toe tight of toe incorrect use toe Commission has made of approving toe accounts I support toe rapporteur in postponing toe discharge decisions.
+Greedy      : the european of the european of the european of the european
+
+--- Example 2 ---
+Source (FI):  Kerron teille tositapauksen, joka ei ole vitsi, vaan joka tapahtui viime viikolla.
+Reference:    We were successful in introducing reports on the structural funds and major programmes like Phare, Tacis, Meda, and so on.
+Greedy      : the european of the european of the european
+
+--- Example 3 ---
+Source (FI):  Wienissä vuonna 1994 perustettu eurooppalaisten naisten terveysverkosto luki naisiin kohdistuneen väkivallan osaksi kuutta ensisijaista huolenaihetta terveydenhuollon alalla. Vaikka mainittu väkivalta ei tunne sosiaaliskulttuurisia, uskonnollisia tai rodullisia rajoja, niin kaikkein haavoittuvimpia ovat lasten ohella nuoret ja köyhät siirto laisnaiset.
+Reference:    The European Women's Health Network which was created in Vienna in 1994 included violence against women among its six basic health concerns, and although such violence has no sociocultural, religious or racial boundaries, the most vulnerable are young, migrant, poor women, and children.
+Greedy      : the european of the european to the european of the european and the european of the european of the european of the european of the european of the european of the european of the european of the european of the european
+
+--- Example 4 ---
+Source (FI):  On totta, että EU ei ole kyennyt panemaan täytäntöön sen sopimuksiin sisältyviä perusihmisoikeuksia ja demokratialausekkeita.
+Reference:    Passing the hat round and trying to move things from pillar to post is not the model way of doing things.
+Greedy      : the european of the european to the european and the european
+
+--- Example 5 ---
+Source (FI):  Wohlfart. - (FR) Slovenian osalta on sovellettu muun laista ratkaisua. Tsekin tasavallan ja muiden assosiaatiosopimuksen allekirjoittaneiden maiden osalta ongelmat ovat neuvoston mielestä samankaltaisia, mutta ilmenevät eri yhteyksissä.
+Reference:    Alavanos (GUE/NGL). - (EL) Mr President, I would Uke to thank you for having created a precedent and for having thus enabled my question to be debated, and for the wisdom you and the President-in-Office have shown when tackling this issue.
+Greedy      : the european of the european of the european of the european and the european of the european
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (greedy): 0.0195
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0195
+  Exact Match:     0.00%
+  Word Accuracy:   2.49%
+  Avg Length:      12.7 words (ref: 22.9)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/greedy_test_results.csv
+  📊 Summary metrics: /kaggle/working/greedy_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (greedy): 0.0195
+📊 Test Sentences: 10,000
+🎭 Strategy: GREEDY

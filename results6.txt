@@ -1,0 +1,26 @@
+    config = {
+        'd_model': 256,  # Reduced from 512 to 256 for easier training
+        'num_heads': 8,
+        'num_encoder_layers': 4,  # Reduced from 6 to 4
+        'num_decoder_layers': 4,  # Reduced from 6 to 4
+        'd_ff': 1024,  # Reduced from 2048 to 1024
+        'max_seq_len': 128,
+        'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
+        'pos_encoding_type': 'relative_bias',  # Changed from 'rope' to 'relative_bias'
+        'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
+        'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
+        'num_epochs': 15,  # Increased from 10 to 15 for more training time
+        'warmup_steps': 500,  # Reduced from 2000 to 500 for faster ramp-up
+        'vocab_size': 10000,
+        'save_every': 1000,
+        'eval_every': 200,  # More frequent evaluation
+        'label_smoothing': 0.0,  # Completely disabled
+        'use_label_smoothing': False,  # Ensure cross entropy is used
+        'weight_decay': 1e-4,  # Add weight decay for regularization
+        'gradient_clip': 0.5,  # Reduced gradient clipping
+        # Relative position bias specific parameters
+        'relative_attention_num_buckets': 32,  # Number of relative position buckets
+        'relative_attention_max_distance': 128,  # Maximum relative distance
+    }
+
+

@@ -1,0 +1,191 @@
+    config = {
+        'd_model': 256,  # Reduced from 512 to 256 for easier training
+        'num_heads': 8,
+        'num_encoder_layers': 4,  # Reduced from 6 to 4
+        'num_decoder_layers': 4,  # Reduced from 6 to 4
+        'd_ff': 1024,  # Reduced from 2048 to 1024
+        'max_seq_len': 128,
+        'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
+        'pos_encoding_type': 'relative_bias',  # Changed from 'rope' to 'relative_bias'
+        'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
+        'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
+        'num_epochs': 15,  # Increased from 10 to 15 for more training time
+        'warmup_steps': 500,  # Reduced from 2000 to 500 for faster ramp-up
+        'vocab_size': 10000,
+        'save_every': 1000,
+        'eval_every': 200,  # More frequent evaluation
+        'label_smoothing': 0.0,  # Completely disabled
+        'use_label_smoothing': False,  # Ensure cross entropy is used
+        'weight_decay': 1e-4,  # Add weight decay for regularization
+        'gradient_clip': 0.5,  # Reduced gradient clipping
+        # Relative position bias specific parameters
+        'relative_attention_num_buckets': 32,  # Number of relative position buckets
+        'relative_attention_max_distance': 128,  # Maximum relative distance
+    }
+
+
+📁 Data path: /kaggle/input/anlp1-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp1-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/working/best_model.pt
+📥 Loading model from /kaggle/working/best_model.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: relative_bias
+🔧 Relative attention buckets: 32
+🔧 Relative attention max distance: 128
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,078,064
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european parliament
+   Conservative: the european parliament
+   Balanced:     we
+   Creative:     the first
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european parliament
+   Conservative: this is the european
+   Balanced:     in the european parliament
+   Creative:     the european
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european parliament
+   Conservative: the european parliament
+   Balanced:     toe
+   Creative:     the european parliament of
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european parliament
+   Conservative: there it is a the european that the committee
+   Balanced:     the european of the in this
+   Creative:     the european is
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european parliament
+   Conservative:
+   Balanced:     the most
+   Creative:     will of the
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european parliament
+   Conservative: this is the commission to the european
+   Balanced:     at we member
+   Creative:     even european on in its the european should of the report
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european parliament
+   Conservative: i of the european report
+   Balanced:     - in i which is a of they national this of the commission
+   Creative:     this is of the national and mr
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european parliament
+   Conservative: would we
+   Balanced:     in the european with the european
+   Creative:     the out of president is
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+🔍 VOCABULARY DEBUG INFO:
+   UNK token: '<UNK>' (idx: 3)
+   SOS token: '<SOS>' (idx: 1)
+   EOS token: '<EOS>' (idx: 2)
+   PAD token: '<PAD>' (idx: 0)
+   Target vocab size: 10000
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: balanced
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: BALANCED
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: relative_bias positional encoding
+⚙️  Parameters: 15,078,064
+🎭 Strategy: BALANCED
+================================================================================
+⚖️  Generating translations with Balanced top-k...
+Balanced Translation: 100%|██████████| 10000/10000 [24:24<00:00,  6.83it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Mielestämme tämä johtaa samanaikaisesti välittömän verotuksen kysymysten järjestelyyn ja erityisesti tuloveron kaksinkertaisen verottamisen välttämistä koske vien sopimusten heikkenemiseen, jotka Euroopan yhteisön jäsenvaltiot ovat allekirjoittaneet ja jotka perustavat OO-SE:n kaksinkertaisesta verotuksesta tehtyjen sopimusten perusmalliin.
+Reference:    In our view that would constitute an interference in direct taxation matters and run counter to the agree ments on the avoidance of double taxation of income which the Member States of the European Union have signed on the basis of the OECD's model double taxation agreement.
+Balanced    : the commission of this in on the not in the member parliament mr
+
+--- Example 2 ---
+Source (FI):  Äskettäisessä esityksessäni kerroin yleisesti esille tuo duista talouspolitiikkojen yhteensovittamista ja työllisyys politiikkaa koskevista suuntaviivoista ja siitä, mitä ai omme jatkossa tehdä.
+Reference:    But I would like to know one thing: are you also thinking of the consumer, of consumer protection?
+Balanced    : mr and the i and to the an was be a on the european is a very member was on member to the to president, the european will of the european a of the commission. in the at we that the by the european which is and for the at
+
+--- Example 3 ---
+Source (FI):  Koska kysymyksiä on melko paljon, en aio puuttua yksityiskohtiin, mutta on siis ole massa joitakin mahdollisuuksia, joita voi varmasti hyödyntää. dyntää.
+Reference:    Subject: Decimation of fish stocks by cormorants in the Rhine and other EU inland waterways
+Balanced    : the commission must be will that a community the only i not in for the that the european parliament is other for mr
+
+--- Example 4 ---
+Source (FI):  Tässä, hyvät naiset ja herrat, Yhdysvaltojen vastuu on erittäin suuri.
+Reference:    I want to tell her that her action has been conect, although it has not been followed up as it should have been by the whole international Community.
+Balanced    : what the commission to the at would that is the european the not of by the an
+
+--- Example 5 ---
+Source (FI):  Lisäksi olen varma, että komissaari Bangemann vastaa Euroopan komission puolesta juuri tässä kontekstissa. tissa.
+Reference:    It is crucial if we are going to have a global market and a globally competitive market within the European Union that we move forward on international harmonization.
+Balanced    : is i be the european of the commission that must there on the would in the council of the report will of the most
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (balanced): 0.0906
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0906
+  Exact Match:     0.18%
+  Word Accuracy:   2.10%
+  Avg Length:      23.2 words (ref: 23.4)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/balanced_test_results.csv
+  📊 Summary metrics: /kaggle/working/balanced_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (balanced): 0.0906
+📊 Test Sentences: 10,000
+🎭 Strategy: BALANCED

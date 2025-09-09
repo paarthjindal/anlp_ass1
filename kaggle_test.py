@@ -80,19 +80,27 @@ class ModelTester:
         self.tgt_vocab = self.checkpoint['tgt_vocab']
         self.config = self.checkpoint['args']
 
-        # Initialize model
-        self.model = Transformer(
-            src_vocab_size=len(self.src_vocab),
-            tgt_vocab_size=len(self.tgt_vocab),
-            d_model=self.config['d_model'],
-            num_heads=self.config['num_heads'],
-            num_encoder_layers=self.config['num_encoder_layers'],
-            num_decoder_layers=self.config['num_decoder_layers'],
-            d_ff=self.config['d_ff'],
-            max_seq_len=self.config['max_seq_len'],
-            dropout=self.config['dropout'],
-            pos_encoding_type=self.config['pos_encoding_type']
-        ).to(self.device)
+        # Initialize model with relative attention parameters if available
+        model_kwargs = {
+            'src_vocab_size': len(self.src_vocab),
+            'tgt_vocab_size': len(self.tgt_vocab),
+            'd_model': self.config['d_model'],
+            'num_heads': self.config['num_heads'],
+            'num_encoder_layers': self.config['num_encoder_layers'],
+            'num_decoder_layers': self.config['num_decoder_layers'],
+            'd_ff': self.config['d_ff'],
+            'max_seq_len': self.config['max_seq_len'],
+            'dropout': self.config['dropout'],
+            'pos_encoding_type': self.config['pos_encoding_type']
+        }
+
+        # Add relative attention parameters if they exist in config (for relative_bias models)
+        if 'relative_attention_num_buckets' in self.config:
+            model_kwargs['relative_attention_num_buckets'] = self.config['relative_attention_num_buckets']
+        if 'relative_attention_max_distance' in self.config:
+            model_kwargs['relative_attention_max_distance'] = self.config['relative_attention_max_distance']
+
+        self.model = Transformer(**model_kwargs).to(self.device)
 
         # Load model weights
         self.model.load_state_dict(self.checkpoint['model_state_dict'])
@@ -100,6 +108,13 @@ class ModelTester:
 
         print(f"✅ Model loaded successfully!")
         print(f"🔧 Positional encoding: {self.config['pos_encoding_type']}")
+        if self.config['pos_encoding_type'] == 'relative_bias':
+            if 'relative_attention_num_buckets' in self.config:
+                print(f"🔧 Relative attention buckets: {self.config['relative_attention_num_buckets']}")
+            if 'relative_attention_max_distance' in self.config:
+                print(f"🔧 Relative attention max distance: {self.config['relative_attention_max_distance']}")
+        elif self.config['pos_encoding_type'] == 'rope':
+            print(f"🔧 Using RoPE (Rotary Position Embeddings)")
         print(f"📊 Source vocab size: {len(self.src_vocab):,}")
         print(f"📊 Target vocab size: {len(self.tgt_vocab):,}")
         print(f"🤖 Model parameters: {sum(p.numel() for p in self.model.parameters()):,}")
@@ -125,8 +140,50 @@ class ModelTester:
         return indices
 
     def translate_greedy(self, sentence, max_length=50):
-        """Translate using greedy decoding - kept for compatibility"""
-        return self.translate_top_k(sentence, max_length=max_length, k=1, temperature=1.0)
+        """Translate using greedy decoding with UNK prevention"""
+        self.model.eval()
+
+        src_indices = self.sentence_to_indices(sentence, self.src_vocab)
+        src = torch.tensor([src_indices], device=self.device)
+        src_mask = create_padding_mask(src, self.src_vocab.get_idx(self.src_vocab.PAD_TOKEN))
+
+        # Vocabulary indices
+        unk_idx = self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)
+        sos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)
+        eos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)
+        pad_idx = self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+
+        with torch.no_grad():
+            encoder_output = self.model.encoder(src, src_mask)
+
+            tgt_indices = [sos_idx]
+            generated_tokens = set()  # Track generated tokens to prevent excessive repetition
+
+            for step in range(max_length):
+                tgt = torch.tensor([tgt_indices], device=self.device)
+                tgt_mask = create_look_ahead_mask(tgt, pad_idx)
+
+                decoder_output = self.model.decoder(tgt, encoder_output, src_mask, tgt_mask)
+                logits = decoder_output[0, -1, :]
+
+                # Apply UNK penalty (strong penalty to avoid UNK tokens)
+                logits[unk_idx] -= 10.0
+
+                # Apply repetition penalty for recently generated tokens
+                for token_idx in list(generated_tokens)[-5:]:  # Penalize last 5 unique tokens
+                    if token_idx in generated_tokens:
+                        logits[token_idx] -= 1.0
+
+                # Greedy selection (pick highest probability)
+                next_token = torch.argmax(logits).item()
+
+                tgt_indices.append(next_token)
+                generated_tokens.add(next_token)
+
+                if next_token == eos_idx:
+                    break
+
+        return indices_to_sentence(tgt_indices, self.tgt_vocab)
 
     def translate_top_k(self, sentence, max_length=50, k=50, p=0.9, temperature=1.0):
         """Translate using top-k sampling with nucleus sampling and UNK prevention"""
@@ -207,46 +264,174 @@ class ModelTester:
         return indices_to_sentence(tgt_indices, self.tgt_vocab)
 
     def translate_beam_search(self, sentence, beam_size=4, max_length=50):
-        """Translate using beam search"""
+        """Translate using beam search with UNK prevention and improved beam exploration"""
         self.model.eval()
 
         src_indices = self.sentence_to_indices(sentence, self.src_vocab)
         src = torch.tensor([src_indices], device=self.device)
         src_mask = create_padding_mask(src, self.src_vocab.get_idx(self.src_vocab.PAD_TOKEN))
 
+        # Vocabulary indices
+        unk_idx = self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)
+        sos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)
+        eos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)
+        pad_idx = self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+
         with torch.no_grad():
             encoder_output = self.model.encoder(src, src_mask)
-            beams = [[self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)]]
+
+            # Initialize beams with SOS token
+            beams = [[sos_idx]]
             beam_scores = [0.0]
+            completed_beams = []  # Store completed sequences
 
             for step in range(max_length):
                 candidates = []
 
+                # Process each active beam
                 for i, beam in enumerate(beams):
-                    if beam[-1] == self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN):
-                        candidates.append((beam_scores[i], beam))
+                    # Skip if this beam is already completed
+                    if beam[-1] == eos_idx:
+                        completed_beams.append((beam_scores[i], beam))
                         continue
 
                     tgt = torch.tensor([beam], device=self.device)
-                    tgt_mask = create_look_ahead_mask(tgt, self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN))
+                    tgt_mask = create_look_ahead_mask(tgt, pad_idx)
 
                     decoder_output = self.model.decoder(tgt, encoder_output, src_mask, tgt_mask)
-                    log_probs = F.log_softmax(decoder_output[0, -1, :], dim=-1)
-                    top_k_probs, top_k_indices = torch.topk(log_probs, beam_size)
+                    logits = decoder_output[0, -1, :]
 
-                    for j in range(beam_size):
-                        new_beam = beam + [top_k_indices[j].item()]
+                    # Apply UNK penalty (moderate penalty to avoid UNK tokens)
+                    logits[unk_idx] -= 5.0  # Reduced from 10.0 to allow more exploration
+
+                    # Apply mild repetition penalty for tokens already in the beam (except special tokens)
+                    beam_tokens = set(beam)
+                    for token_idx in beam_tokens:
+                        if token_idx not in [sos_idx, eos_idx, pad_idx, unk_idx]:
+                            logits[token_idx] -= 0.3  # Reduced penalty
+
+                    # Encourage longer sequences by penalizing EOS early
+                    if step < 3:  # Don't allow EOS in first 3 steps
+                        logits[eos_idx] -= 10.0
+
+                    log_probs = F.log_softmax(logits, dim=-1)
+
+                    # Get top beam_size candidates for this beam
+                    top_k_probs, top_k_indices = torch.topk(log_probs, beam_size * 2)  # Consider more options
+
+                    for j in range(len(top_k_probs)):
+                        new_token = top_k_indices[j].item()
+                        new_beam = beam + [new_token]
                         new_score = beam_scores[i] + top_k_probs[j].item()
-                        candidates.append((new_score, new_beam))
 
+                        # Length normalization to prevent bias towards shorter sequences
+                        normalized_score = new_score / len(new_beam)
+
+                        candidates.append((normalized_score, new_score, new_beam))
+
+                # Sort candidates by normalized score and select top beam_size
                 candidates.sort(key=lambda x: x[0], reverse=True)
-                beams = [cand[1] for cand in candidates[:beam_size]]
-                beam_scores = [cand[0] for cand in candidates[:beam_size]]
 
-                if all(beam[-1] == self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN) for beam in beams):
+                # Select beams for next iteration
+                beams = []
+                beam_scores = []
+
+                for normalized_score, raw_score, beam in candidates[:beam_size]:
+                    if beam[-1] == eos_idx:
+                        completed_beams.append((raw_score, beam))
+                    else:
+                        beams.append(beam)
+                        beam_scores.append(raw_score)
+
+                # If no active beams left, break
+                if not beams:
                     break
 
-        return indices_to_sentence(beams[0], self.tgt_vocab)
+                # If we have enough completed beams and they're good quality, we can stop
+                if len(completed_beams) >= beam_size and step >= 5:
+                    break
+
+            # Add any remaining active beams to completed beams
+            for i, beam in enumerate(beams):
+                completed_beams.append((beam_scores[i], beam))
+
+            # Select best completed beam
+            if completed_beams:
+                completed_beams.sort(key=lambda x: x[0] / len(x[1]), reverse=True)  # Length normalized
+                best_beam = completed_beams[0][1]
+            else:
+                # Fallback to first beam if no completions
+                best_beam = beams[0] if beams else [sos_idx, eos_idx]
+
+        return indices_to_sentence(best_beam, self.tgt_vocab)
+
+    def translate_beam_search_alternative(self, sentence, beam_size=8, max_length=50):
+        """Alternative beam search with different parameters for comparison"""
+        self.model.eval()
+
+        src_indices = self.sentence_to_indices(sentence, self.src_vocab)
+        src = torch.tensor([src_indices], device=self.device)
+        src_mask = create_padding_mask(src, self.src_vocab.get_idx(self.src_vocab.PAD_TOKEN))
+
+        # Vocabulary indices
+        unk_idx = self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)
+        sos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)
+        eos_idx = self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)
+        pad_idx = self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)
+
+        with torch.no_grad():
+            encoder_output = self.model.encoder(src, src_mask)
+
+            # Initialize with SOS
+            sequences = [[sos_idx]]
+            scores = [0.0]
+
+            for step in range(max_length):
+                all_candidates = []
+
+                for i, seq in enumerate(sequences):
+                    if seq[-1] == eos_idx:
+                        all_candidates.append((scores[i], seq))
+                        continue
+
+                    tgt = torch.tensor([seq], device=self.device)
+                    tgt_mask = create_look_ahead_mask(tgt, pad_idx)
+
+                    decoder_output = self.model.decoder(tgt, encoder_output, src_mask, tgt_mask)
+                    logits = decoder_output[0, -1, :]
+
+                    # Light UNK penalty
+                    logits[unk_idx] -= 3.0
+
+                    # Prevent immediate EOS
+                    if step < 2:
+                        logits[eos_idx] -= 5.0
+
+                    log_probs = F.log_softmax(logits, dim=-1)
+
+                    # Get all possible next tokens (not just top-k)
+                    for token_idx in range(len(self.tgt_vocab)):
+                        new_seq = seq + [token_idx]
+                        new_score = scores[i] + log_probs[token_idx].item()
+                        all_candidates.append((new_score, new_seq))
+
+                # Select top beam_size candidates
+                all_candidates.sort(key=lambda x: x[0], reverse=True)
+
+                sequences = []
+                scores = []
+
+                for score, seq in all_candidates[:beam_size]:
+                    sequences.append(seq)
+                    scores.append(score)
+
+                # Check if all sequences are complete
+                if all(seq[-1] == eos_idx for seq in sequences):
+                    break
+
+            # Return best sequence
+            best_idx = max(range(len(scores)), key=lambda i: scores[i] / len(sequences[i]))
+            return indices_to_sentence(sequences[best_idx], self.tgt_vocab)
 
     def translate_conservative(self, sentence, max_length=50):
         """Conservative top-k strategy: k=20, p=0.8, temp=1.0"""
@@ -310,12 +495,26 @@ class ModelTester:
                 balanced_trans = self.translate_balanced(sentence)
                 creative_trans = self.translate_creative(sentence)
                 beam_trans = self.translate_beam_search(sentence, beam_size=4)
+                beam_alt_trans = self.translate_beam_search_alternative(sentence, beam_size=6)
 
                 print(f"   Greedy:       {greedy_trans}")
                 print(f"   Conservative: {conservative_trans}")
                 print(f"   Balanced:     {balanced_trans}")
                 print(f"   Creative:     {creative_trans}")
                 print(f"   Beam:         {beam_trans}")
+                print(f"   Beam-Alt:     {beam_alt_trans}")
+
+                # Check for UNK tokens and warn
+                if '<UNK>' in beam_trans:
+                    print(f"   ⚠️  Warning: Beam search still producing UNK tokens!")
+                if '<UNK>' in greedy_trans:
+                    print(f"   ⚠️  Warning: Greedy search producing UNK tokens!")
+
+                # Check for very short translations
+                if len(beam_trans.split()) <= 1:
+                    print(f"   ⚠️  Warning: Beam search producing very short translation!")
+                if len(beam_alt_trans.split()) <= 1:
+                    print(f"   ⚠️  Warning: Alternative beam search producing very short translation!")
 
                 results.append({
                     'Finnish': sentence,
@@ -323,7 +522,8 @@ class ModelTester:
                     'Conservative': conservative_trans,
                     'Balanced': balanced_trans,
                     'Creative': creative_trans,
-                    'Beam': beam_trans
+                    'Beam': beam_trans,
+                    'Beam_Alternative': beam_alt_trans
                 })
 
             except Exception as e:
@@ -334,7 +534,8 @@ class ModelTester:
                     'Conservative': f"Error: {e}",
                     'Balanced': f"Error: {e}",
                     'Creative': f"Error: {e}",
-                    'Beam': f"Error: {e}"
+                    'Beam': f"Error: {e}",
+                    'Beam_Alternative': f"Error: {e}"
                 })
 
         # Save results
@@ -342,11 +543,228 @@ class ModelTester:
         df.to_csv('/kaggle/working/sample_translations.csv', index=False)
         print(f"\n💾 Sample translations saved to /kaggle/working/sample_translations.csv")
 
+        # Debug vocabulary information
+        print(f"\n🔍 VOCABULARY DEBUG INFO:")
+        print(f"   UNK token: '{self.tgt_vocab.UNK_TOKEN}' (idx: {self.tgt_vocab.get_idx(self.tgt_vocab.UNK_TOKEN)})")
+        print(f"   SOS token: '{self.tgt_vocab.SOS_TOKEN}' (idx: {self.tgt_vocab.get_idx(self.tgt_vocab.SOS_TOKEN)})")
+        print(f"   EOS token: '{self.tgt_vocab.EOS_TOKEN}' (idx: {self.tgt_vocab.get_idx(self.tgt_vocab.EOS_TOKEN)})")
+        print(f"   PAD token: '{self.tgt_vocab.PAD_TOKEN}' (idx: {self.tgt_vocab.get_idx(self.tgt_vocab.PAD_TOKEN)})")
+        print(f"   Target vocab size: {len(self.tgt_vocab)}")
+
         return results
 
-    def single_strategy_evaluation(self, strategy='balanced', use_full_test=True):
-        """Simplified evaluation using only one strategy for BLEU calculation"""
+    def comprehensive_evaluation(self, use_full_test=True, top_k_only=False):
+        """Comprehensive evaluation on test set with top-k sampling strategies"""
         print("\n" + "="*80)
+        print("🔬 COMPREHENSIVE MODEL EVALUATION WITH TOP-K SAMPLING")
+        print("="*80)
+
+        # Load test data
+        print("📁 Loading test data...")
+        try:
+            en_file = f"{DATA_PATH}/EUbookshop.en"
+            fi_file = f"{DATA_PATH}/EUbookshop.fi"
+
+            if not os.path.exists(en_file) or not os.path.exists(fi_file):
+                print(f"❌ Data files not found:")
+                print(f"   Expected: {en_file}")
+                print(f"   Expected: {fi_file}")
+                return None
+
+            en_sentences, fi_sentences = load_data(en_file, fi_file)
+            train_data, val_data, test_data = split_data(en_sentences, fi_sentences, train_ratio=0.8, val_ratio=0.1)
+
+            if use_full_test:
+                test_src = test_data[1]  # Finnish
+                test_tgt = test_data[0]  # English
+                print(f"✅ Using full test set: {len(test_src):,} sentences")
+            else:
+                test_src = test_data[1][:100]
+                test_tgt = test_data[0][:100]
+                print(f"✅ Using test subset: {len(test_src)} sentences")
+
+        except Exception as e:
+            print(f"❌ Error loading data: {e}")
+            return None
+
+        # Initialize prediction storage
+        predictions = {
+            'greedy': [],
+            'conservative': [],
+            'balanced': [],
+            'creative': [],
+            'beam': []
+        }
+        references = []
+
+        print(f"\n📊 Test set size: {len(test_src)} sentence pairs")
+        print(f"🤖 Model: {self.config['pos_encoding_type']} positional encoding")
+        print(f"⚙️  Parameters: {sum(p.numel() for p in self.model.parameters()):,}")
+
+        if top_k_only:
+            print("🚀 Mode: TOP-K ONLY (Conservative, Balanced, Creative)")
+            strategies = ['conservative', 'balanced', 'creative']
+        else:
+            print("🔍 Mode: COMPREHENSIVE (All strategies + Beam search)")
+            strategies = ['greedy', 'conservative', 'balanced', 'creative', 'beam']
+
+        print("="*80)
+
+        # Generate translations for each strategy
+        for strategy in strategies:
+            if strategy == 'greedy':
+                print("⚡ Phase: Greedy decoding (k=1)...")
+                for i, src_sentence in enumerate(tqdm(test_src, desc="Greedy")):
+                    pred = self.translate_greedy(src_sentence)
+                    predictions['greedy'].append(pred)
+                    if len(references) <= i:
+                        references.append(test_tgt[i])
+
+            elif strategy == 'conservative':
+                print("🛡️  Phase: Conservative top-k (k=20, p=0.8)...")
+                for i, src_sentence in enumerate(tqdm(test_src, desc="Conservative")):
+                    pred = self.translate_conservative(src_sentence)
+                    predictions['conservative'].append(pred)
+                    if len(references) <= i:
+                        references.append(test_tgt[i])
+
+            elif strategy == 'balanced':
+                print("⚖️  Phase: Balanced top-k (k=50, p=0.9)...")
+                for i, src_sentence in enumerate(tqdm(test_src, desc="Balanced")):
+                    pred = self.translate_balanced(src_sentence)
+                    predictions['balanced'].append(pred)
+                    if len(references) <= i:
+                        references.append(test_tgt[i])
+
+            elif strategy == 'creative':
+                print("🎨 Phase: Creative top-k (k=100, p=0.95)...")
+                for i, src_sentence in enumerate(tqdm(test_src, desc="Creative")):
+                    pred = self.translate_creative(src_sentence)
+                    predictions['creative'].append(pred)
+                    if len(references) <= i:
+                        references.append(test_tgt[i])
+
+            elif strategy == 'beam':
+                print("🔍 Phase: Beam search (beam_size=4)...")
+                for i, src_sentence in enumerate(tqdm(test_src, desc="Beam")):
+                    pred = self.translate_beam_search(src_sentence, beam_size=4)
+                    predictions['beam'].append(pred)
+                    if len(references) <= i:
+                        references.append(test_tgt[i])
+
+        # Show examples for comparison
+        print(f"\n📝 Translation Examples (first 5):")
+        for i in range(min(5, len(test_src))):
+            print(f"\n--- Example {i+1} ---")
+            print(f"Source (FI):  {test_src[i]}")
+            print(f"Reference:    {references[i]}")
+            for strategy in strategies:
+                if predictions[strategy]:
+                    print(f"{strategy.capitalize():12}: {predictions[strategy][i]}")
+
+        # Calculate metrics
+        print("\n" + "="*80)
+        print("📈 EVALUATION RESULTS - BLEU SCORES")
+        print("="*80)
+
+        bleu_scores = {}
+        for strategy in strategies:
+            if predictions[strategy]:
+                try:
+                    bleu_score = calculate_bleu(predictions[strategy], references)
+                    bleu_scores[strategy] = bleu_score
+                    print(f"  {strategy.capitalize():12}: {bleu_score:.4f}")
+                except Exception as e:
+                    print(f"  {strategy.capitalize():12}: Error - {e}")
+                    bleu_scores[strategy] = 0.0
+
+        # Find best performing strategy
+        if bleu_scores:
+            best_strategy = max(bleu_scores.keys(), key=lambda k: bleu_scores[k])
+            best_bleu = bleu_scores[best_strategy]
+            print(f"\n🏆 Best Strategy: {best_strategy.upper()} with BLEU = {best_bleu:.4f}")
+
+        # Calculate accuracy metrics for best strategies
+        print(f"\n📊 DETAILED METRICS FOR TOP STRATEGIES:")
+
+        # Sort strategies by BLEU score
+        sorted_strategies = sorted([(k, v) for k, v in bleu_scores.items()], key=lambda x: x[1], reverse=True)
+
+        detailed_metrics = {}
+        for strategy, bleu_score in sorted_strategies[:3]:  # Top 3 strategies
+            if predictions[strategy]:
+                exact_match, word_acc = self.calculate_accuracy_metrics(predictions[strategy], references)
+                detailed_metrics[strategy] = {
+                    'bleu': bleu_score,
+                    'exact_match': exact_match,
+                    'word_accuracy': word_acc
+                }
+
+                avg_pred_len = sum(len(s.split()) for s in predictions[strategy]) / len(predictions[strategy])
+                avg_ref_len = sum(len(s.split()) for s in references) / len(references)
+
+                print(f"\n{strategy.upper()} Strategy:")
+                print(f"  BLEU Score:      {bleu_score:.4f}")
+                print(f"  Exact Match:     {exact_match:.2f}%")
+                print(f"  Word Accuracy:   {word_acc:.2f}%")
+                print(f"  Avg Length:      {avg_pred_len:.1f} words (ref: {avg_ref_len:.1f})")
+
+        # Final summary
+        print(f"\n🏆 FINAL EVALUATION SUMMARY:")
+        print(f"  Dataset: Finnish → English")
+        print(f"  Test sentences: {len(test_src):,}")
+        print(f"  Strategies tested: {len(strategies)}")
+        print(f"  Best BLEU score: {best_bleu:.4f} ({best_strategy})")
+        print(f"  Vocab sizes: FI={len(self.src_vocab):,}, EN={len(self.tgt_vocab):,}")
+
+        # Calculate improvement over greedy
+        if 'greedy' in bleu_scores and best_strategy != 'greedy':
+            improvement = best_bleu - bleu_scores['greedy']
+            print(f"  Improvement over greedy: +{improvement:.4f} BLEU ({improvement/bleu_scores['greedy']*100:.1f}%)")
+
+        print("="*80)
+
+        # Save detailed results
+        results_df_data = {
+            'Source_Finnish': test_src,
+            'Reference_English': references
+        }
+
+        for strategy in strategies:
+            if predictions[strategy]:
+                results_df_data[f'{strategy.capitalize()}_Translation'] = predictions[strategy]
+
+        results_df = pd.DataFrame(results_df_data)
+        results_df.to_csv('/kaggle/working/comprehensive_test_results.csv', index=False)
+
+        # Save summary metrics
+        summary = {
+            'test_sentences': len(test_src),
+            'strategies_tested': strategies,
+            'bleu_scores': bleu_scores,
+            'detailed_metrics': detailed_metrics,
+            'best_strategy': best_strategy,
+            'best_bleu_score': best_bleu,
+            'model_parameters': sum(p.numel() for p in self.model.parameters()),
+            'positional_encoding': self.config['pos_encoding_type'],
+            'vocab_sizes': {
+                'finnish': len(self.src_vocab),
+                'english': len(self.tgt_vocab)
+            }
+        }
+
+        with open('/kaggle/working/top_k_evaluation_summary.json', 'w') as f:
+            json.dump(summary, f, indent=2)
+
+        print(f"\n💾 Results saved:")
+        print(f"  📄 Detailed results: /kaggle/working/comprehensive_test_results.csv")
+        print(f"  📊 Summary metrics: /kaggle/working/top_k_evaluation_summary.json")
+
+        return summary
+
+    def single_strategy_evaluation(self, strategy='greedy', use_full_test=True):
+        """Single strategy evaluation for focused testing"""
+        print(f"\n" + "="*80)
         print(f"🎯 SINGLE STRATEGY EVALUATION: {strategy.upper()}")
         print("="*80)
 
@@ -381,70 +799,62 @@ class ModelTester:
         print(f"\n📊 Test set size: {len(test_src)} sentence pairs")
         print(f"🤖 Model: {self.config['pos_encoding_type']} positional encoding")
         print(f"⚙️  Parameters: {sum(p.numel() for p in self.model.parameters()):,}")
-        print(f"🎯 Strategy: {strategy.upper()}")
+        print(f"🎭 Strategy: {strategy.upper()}")
         print("="*80)
 
-        # Generate translations using selected strategy
+        # Generate translations
         predictions = []
         references = test_tgt
 
         if strategy == 'greedy':
-            print("⚡ Generating translations with greedy decoding...")
-            for i, src_sentence in enumerate(tqdm(test_src, desc="Greedy")):
+            print("⚡ Generating translations with Greedy decoding...")
+            for src_sentence in tqdm(test_src, desc="Greedy Translation"):
                 pred = self.translate_greedy(src_sentence)
                 predictions.append(pred)
-
         elif strategy == 'conservative':
-            print("🛡️  Generating translations with conservative top-k (k=20, p=0.8)...")
-            for i, src_sentence in enumerate(tqdm(test_src, desc="Conservative")):
+            print("🛡️  Generating translations with Conservative top-k...")
+            for src_sentence in tqdm(test_src, desc="Conservative Translation"):
                 pred = self.translate_conservative(src_sentence)
                 predictions.append(pred)
-
         elif strategy == 'balanced':
-            print("⚖️  Generating translations with balanced top-k (k=50, p=0.9)...")
-            for i, src_sentence in enumerate(tqdm(test_src, desc="Balanced")):
+            print("⚖️  Generating translations with Balanced top-k...")
+            for src_sentence in tqdm(test_src, desc="Balanced Translation"):
                 pred = self.translate_balanced(src_sentence)
                 predictions.append(pred)
-
         elif strategy == 'creative':
-            print("🎨 Generating translations with creative top-k (k=100, p=0.95)...")
-            for i, src_sentence in enumerate(tqdm(test_src, desc="Creative")):
+            print("🎨 Generating translations with Creative top-k...")
+            for src_sentence in tqdm(test_src, desc="Creative Translation"):
                 pred = self.translate_creative(src_sentence)
                 predictions.append(pred)
-
         elif strategy == 'beam':
-            print("🔍 Generating translations with beam search (beam_size=4)...")
-            for i, src_sentence in enumerate(tqdm(test_src, desc="Beam")):
+            print("🔍 Generating translations with Beam search...")
+            for src_sentence in tqdm(test_src, desc="Beam Translation"):
                 pred = self.translate_beam_search(src_sentence, beam_size=4)
                 predictions.append(pred)
-
         else:
             print(f"❌ Unknown strategy: {strategy}")
             return None
 
         # Show examples
-        print(f"\n📝 Translation Examples (first 10):")
-        for i in range(min(10, len(test_src))):
+        print(f"\n📝 Translation Examples (first 5):")
+        for i in range(min(5, len(test_src))):
             print(f"\n--- Example {i+1} ---")
             print(f"Source (FI):  {test_src[i]}")
             print(f"Reference:    {references[i]}")
             print(f"{strategy.capitalize():12}: {predictions[i]}")
 
         # Calculate BLEU score
-        print("\n" + "="*80)
-        print("📈 BLEU SCORE EVALUATION")
-        print("="*80)
-
+        print(f"\n📈 EVALUATION RESULTS")
+        print("="*50)
         try:
             bleu_score = calculate_bleu(predictions, references)
             print(f"🎯 BLEU Score ({strategy}): {bleu_score:.4f}")
         except Exception as e:
-            print(f"❌ Error calculating BLEU score: {e}")
+            print(f"❌ Error calculating BLEU: {e}")
             bleu_score = 0.0
 
         # Calculate additional metrics
         exact_match, word_acc = self.calculate_accuracy_metrics(predictions, references)
-
         avg_pred_len = sum(len(s.split()) for s in predictions) / len(predictions)
         avg_ref_len = sum(len(s.split()) for s in references) / len(references)
 
@@ -452,34 +862,7 @@ class ModelTester:
         print(f"  BLEU Score:      {bleu_score:.4f}")
         print(f"  Exact Match:     {exact_match:.2f}%")
         print(f"  Word Accuracy:   {word_acc:.2f}%")
-        print(f"  Avg Pred Length: {avg_pred_len:.1f} words")
-        print(f"  Avg Ref Length:  {avg_ref_len:.1f} words")
-
-        # Analyze translation quality
-        print(f"\n🔍 TRANSLATION QUALITY ANALYSIS:")
-
-        # Count UNK tokens
-        unk_count = sum(1 for pred in predictions if '<UNK>' in pred)
-        unk_percentage = (unk_count / len(predictions)) * 100
-        print(f"  UNK tokens:      {unk_count}/{len(predictions)} ({unk_percentage:.1f}%)")
-
-        # Count empty translations
-        empty_count = sum(1 for pred in predictions if not pred.strip())
-        empty_percentage = (empty_count / len(predictions)) * 100
-        print(f"  Empty outputs:   {empty_count}/{len(predictions)} ({empty_percentage:.1f}%)")
-
-        # Count very short translations (1-2 words)
-        short_count = sum(1 for pred in predictions if len(pred.split()) <= 2)
-        short_percentage = (short_count / len(predictions)) * 100
-        print(f"  Very short:      {short_count}/{len(predictions)} ({short_percentage:.1f}%)")
-
-        # Final summary
-        print(f"\n🏆 FINAL SUMMARY:")
-        print(f"  Strategy: {strategy.upper()}")
-        print(f"  Test sentences: {len(test_src):,}")
-        print(f"  BLEU Score: {bleu_score:.4f}")
-        print(f"  Model quality: {'🟢 Good' if bleu_score > 0.15 else '🟡 Fair' if bleu_score > 0.05 else '🔴 Poor'}")
-        print("="*80)
+        print(f"  Avg Length:      {avg_pred_len:.1f} words (ref: {avg_ref_len:.1f})")
 
         # Save results
         results_df = pd.DataFrame({
@@ -487,7 +870,7 @@ class ModelTester:
             'Reference_English': references,
             f'{strategy.capitalize()}_Translation': predictions
         })
-        results_df.to_csv(f'/kaggle/working/single_strategy_{strategy}_results.csv', index=False)
+        results_df.to_csv(f'/kaggle/working/{strategy}_test_results.csv', index=False)
 
         # Save summary
         summary = {
@@ -498,9 +881,6 @@ class ModelTester:
             'word_accuracy': word_acc,
             'avg_prediction_length': avg_pred_len,
             'avg_reference_length': avg_ref_len,
-            'unk_percentage': unk_percentage,
-            'empty_percentage': empty_percentage,
-            'short_percentage': short_percentage,
             'model_parameters': sum(p.numel() for p in self.model.parameters()),
             'positional_encoding': self.config['pos_encoding_type'],
             'vocab_sizes': {
@@ -509,12 +889,13 @@ class ModelTester:
             }
         }
 
-        with open(f'/kaggle/working/single_strategy_{strategy}_summary.json', 'w') as f:
+        with open(f'/kaggle/working/{strategy}_evaluation_summary.json', 'w') as f:
             json.dump(summary, f, indent=2)
 
         print(f"\n💾 Results saved:")
-        print(f"  📄 Detailed results: /kaggle/working/single_strategy_{strategy}_results.csv")
-        print(f"  📊 Summary: /kaggle/working/single_strategy_{strategy}_summary.json")
+        print(f"  📄 Detailed results: /kaggle/working/{strategy}_test_results.csv")
+        print(f"  📊 Summary metrics: /kaggle/working/{strategy}_evaluation_summary.json")
+        print("="*80)
 
         return summary
 
@@ -548,6 +929,7 @@ def main():
         '/kaggle/working/final_model.pt',     # Final training state
         '/kaggle/working/checkpoint_epoch_2.pt',  # Specific epoch
         f'{DATA_PATH}/best_model.pt',         # If model is in dataset
+        f'{DATA_PATH}/rope_topk/best_model.pt',  # RoPE model from dataset
     ]
 
     model_path = None
@@ -579,7 +961,7 @@ def main():
 
         # You can modify these parameters:
         USE_FULL_TEST = True           # Set to False for faster testing with subset
-        STRATEGY = 'balanced'          # Choose: 'greedy', 'conservative', 'balanced', 'creative', 'beam'
+        STRATEGY = 'greedy'          # Choose: 'greedy', 'conservative', 'balanced', 'creative', 'beam'
 
         print(f"Selected strategy: {STRATEGY}")
 
@@ -593,6 +975,28 @@ def main():
             print(f"🎯 BLEU Score ({STRATEGY}): {summary['bleu_score']:.4f}")
             print(f"📊 Test Sentences: {summary['test_sentences']:,}")
             print(f"🎭 Strategy: {STRATEGY.upper()}")
+
+        # Uncomment below for comprehensive evaluation (all strategies)
+        """
+        print("\n" + "="*60)
+        print("🔬 Running comprehensive evaluation...")
+
+        comprehensive_summary = tester.comprehensive_evaluation(
+            use_full_test=USE_FULL_TEST,
+            top_k_only=False
+        )
+
+        if comprehensive_summary:
+            print("\n✅ Comprehensive testing completed!")
+            print(f"🎯 Best BLEU Score: {comprehensive_summary['best_bleu_score']:.4f} ({comprehensive_summary['best_strategy']})")
+            print(f"📊 Test Sentences: {comprehensive_summary['test_sentences']:,}")
+            print(f"🚀 Strategies tested: {', '.join(comprehensive_summary['strategies_tested'])}")
+
+            # Show all BLEU scores
+            print(f"\n📊 All BLEU Scores:")
+            for strategy, score in comprehensive_summary['bleu_scores'].items():
+                print(f"   {strategy.capitalize()}: {score:.4f}")
+        """
 
     except Exception as e:
         print(f"❌ Error during testing: {e}")

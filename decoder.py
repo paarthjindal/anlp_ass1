@@ -7,7 +7,8 @@ from encoder import (MultiHeadAttention, RoPEMultiHeadAttention,
                     SinusoidalPositionalEncoding, TransformerEncoder)
 
 class DecoderLayer(nn.Module):
-    def __init__(self, d_model, num_heads, d_ff, dropout=0.1, pos_encoding_type="rope"):
+    def __init__(self, d_model, num_heads, d_ff, dropout=0.1, pos_encoding_type="rope",
+                 relative_attention_num_buckets=32, relative_attention_max_distance=128):
         super(DecoderLayer, self).__init__()
 
         # Self-attention in decoder
@@ -15,8 +16,12 @@ class DecoderLayer(nn.Module):
             self.self_attn = RoPEMultiHeadAttention(d_model, num_heads, dropout)
             self.cross_attn = RoPEMultiHeadAttention(d_model, num_heads, dropout)
         elif pos_encoding_type == "relative_bias":
-            self.self_attn = RelativeBiasMultiHeadAttention(d_model, num_heads, dropout)
-            self.cross_attn = RelativeBiasMultiHeadAttention(d_model, num_heads, dropout)
+            self.self_attn = RelativeBiasMultiHeadAttention(d_model, num_heads, dropout,
+                                                          relative_attention_num_buckets,
+                                                          relative_attention_max_distance)
+            self.cross_attn = RelativeBiasMultiHeadAttention(d_model, num_heads, dropout,
+                                                           relative_attention_num_buckets,
+                                                           relative_attention_max_distance)
         else:
             self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
             self.cross_attn = MultiHeadAttention(d_model, num_heads, dropout)
@@ -44,7 +49,8 @@ class DecoderLayer(nn.Module):
 
 class TransformerDecoder(nn.Module):
     def __init__(self, vocab_size, d_model, num_heads, num_layers, d_ff,
-                 max_seq_len, dropout=0.1, pos_encoding_type="rope"):
+                 max_seq_len, dropout=0.1, pos_encoding_type="rope",
+                 relative_attention_num_buckets=32, relative_attention_max_distance=128):
         super(TransformerDecoder, self).__init__()
 
         self.d_model = d_model
@@ -59,7 +65,8 @@ class TransformerDecoder(nn.Module):
             self.pos_encoding = None
 
         self.layers = nn.ModuleList([
-            DecoderLayer(d_model, num_heads, d_ff, dropout, pos_encoding_type)
+            DecoderLayer(d_model, num_heads, d_ff, dropout, pos_encoding_type,
+                        relative_attention_num_buckets, relative_attention_max_distance)
             for _ in range(num_layers)
         ])
 
@@ -88,7 +95,8 @@ class TransformerDecoder(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, src_vocab_size, tgt_vocab_size, d_model=512, num_heads=8,
                  num_encoder_layers=6, num_decoder_layers=6, d_ff=2048,
-                 max_seq_len=512, dropout=0.1, pos_encoding_type="rope"):
+                 max_seq_len=512, dropout=0.1, pos_encoding_type="rope",
+                 relative_attention_num_buckets=32, relative_attention_max_distance=128):
         super(Transformer, self).__init__()
 
         self.encoder = TransformerEncoder(
@@ -99,7 +107,9 @@ class Transformer(nn.Module):
             d_ff=d_ff,
             max_seq_len=max_seq_len,
             dropout=dropout,
-            pos_encoding_type=pos_encoding_type
+            pos_encoding_type=pos_encoding_type,
+            relative_attention_num_buckets=relative_attention_num_buckets,
+            relative_attention_max_distance=relative_attention_max_distance
         )
 
         self.decoder = TransformerDecoder(
@@ -110,7 +120,9 @@ class Transformer(nn.Module):
             d_ff=d_ff,
             max_seq_len=max_seq_len,
             dropout=dropout,
-            pos_encoding_type=pos_encoding_type
+            pos_encoding_type=pos_encoding_type,
+            relative_attention_num_buckets=relative_attention_num_buckets,
+            relative_attention_max_distance=relative_attention_max_distance
         )
 
         self.src_pad_idx = 0

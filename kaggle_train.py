@@ -28,6 +28,17 @@ sys.path.append(DATA_PATH)
 sys.path.append(CODE_PATH)
 sys.path.append("/kaggle/working")
 
+# Debug: Print available files
+print(f"📁 Data path: {DATA_PATH}")
+print("Available files in DATA_PATH:")
+try:
+    files = os.listdir(DATA_PATH)
+    for f in sorted(files):
+        print(f"  {f}")
+except Exception as e:
+    print(f"❌ Cannot list files in {DATA_PATH}: {e}")
+    print("💡 Make sure your dataset is properly uploaded to Kaggle")
+
 class LabelSmoothingLoss(nn.Module):
     """
     Label smoothing loss for better generalization in translation tasks.
@@ -95,6 +106,14 @@ except ImportError as e:
             print(f"  {f}")
     except:
         print("  Could not list files")
+
+    # Check if specific files exist
+    required_files = ['encoder.py', 'decoder.py', 'utils.py']
+    for file in required_files:
+        file_path = os.path.join(DATA_PATH, file)
+        exists = os.path.exists(file_path)
+        print(f"  {file}: {'✅ Found' if exists else '❌ Missing'}")
+
     modules_imported = False
 
 def train_model():
@@ -109,7 +128,7 @@ def train_model():
         print("3. Ensure sacrebleu is installed (script will try to install it)")
         return None
 
-    # Configuration - Simplified for better learning
+    # Configuration - Using Relative Position Bias for better translation
     config = {
         'd_model': 256,  # Reduced from 512 to 256 for easier training
         'num_heads': 8,
@@ -118,7 +137,7 @@ def train_model():
         'd_ff': 1024,  # Reduced from 2048 to 1024
         'max_seq_len': 128,
         'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
-        'pos_encoding_type': 'rope',
+        'pos_encoding_type': 'relative_bias',  # Changed from 'rope' to 'relative_bias'
         'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
         'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
         'num_epochs': 15,  # Increased from 10 to 15 for more training time
@@ -129,10 +148,13 @@ def train_model():
         'label_smoothing': 0.0,  # Completely disabled
         'use_label_smoothing': False,  # Ensure cross entropy is used
         'weight_decay': 1e-4,  # Add weight decay for regularization
-        'gradient_clip': 0.5  # Reduced gradient clipping
+        'gradient_clip': 0.5,  # Reduced gradient clipping
+        # Relative position bias specific parameters
+        'relative_attention_num_buckets': 32,  # Number of relative position buckets
+        'relative_attention_max_distance': 128,  # Maximum relative distance
     }
 
-    print("🚀 Starting Transformer Training on Kaggle")
+    print("🚀 Starting Transformer Training with Relative Position Bias")
     print("="*60)
     print(f"Configuration: {json.dumps(config, indent=2)}")
     print("="*60)
@@ -210,7 +232,7 @@ def train_model():
     print(f"   Val batches:   {len(val_loader)}")
 
     # Initialize model
-    print("\n🤖 Initializing model...")
+    print("\n🤖 Initializing model with Relative Position Bias...")
     model = Transformer(
         src_vocab_size=len(src_vocab),
         tgt_vocab_size=len(tgt_vocab),
@@ -221,7 +243,9 @@ def train_model():
         d_ff=config['d_ff'],
         max_seq_len=config['max_seq_len'],
         dropout=config['dropout'],
-        pos_encoding_type=config['pos_encoding_type']
+        pos_encoding_type=config['pos_encoding_type'],
+        relative_attention_num_buckets=config['relative_attention_num_buckets'],
+        relative_attention_max_distance=config['relative_attention_max_distance']
     ).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())

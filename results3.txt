@@ -1,0 +1,193 @@
+
+
+ # Configuration - Simplified for better learning
+    config = {
+        'd_model': 256,  # Reduced from 512 to 256 for easier training
+        'num_heads': 8,
+        'num_encoder_layers': 4,  # Reduced from 6 to 4
+        'num_decoder_layers': 4,  # Reduced from 6 to 4
+        'd_ff': 1024,  # Reduced from 2048 to 1024
+        'max_seq_len': 128,
+        'dropout': 0.2,  # Increased from 0.1 to 0.2 for better regularization
+        'pos_encoding_type': 'rope',
+        'batch_size': 16,  # Reduced from 32 to 16 for more stable gradients
+        'learning_rate': 1e-3,  # Increased from 2e-4 to 1e-3 for faster learning
+        'num_epochs': 10,  # Increased from 10 to 15 for more training time
+        'warmup_steps': 500,  # Reduced from 2000 to 500 for faster ramp-up
+        'vocab_size': 10000,
+        'save_every': 1000,
+        'eval_every': 200,  # More frequent evaluation
+        'label_smoothing': 0.0,  # Completely disabled
+        'use_label_smoothing': False,  # Ensure cross entropy is used
+        'weight_decay': 1e-4,  # Add weight decay for regularization
+        'gradient_clip': 0.5  # Reduced gradient clipping
+    }
+
+
+decoding strategy is beam search
+
+
+📁 Data path: /kaggle/input/anlp-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+📥 Loading model from /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: rope
+🔧 Using RoPE (Rotary Position Embeddings)
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,053,584
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european
+   Conservative: it is the parliament
+   Balanced:     with must a they
+   Creative:     no of will
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european
+   Conservative: i
+   Balanced:     the commission to not of the fact
+   Creative:     at it is which to
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european
+   Conservative: the european
+   Balanced:     on can
+   Creative:     the that from the european human
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european of the european
+   Conservative: i a for the european with in the
+   Balanced:     the - the european
+   Creative:     the eu
+   Beam:         the european of the european
+   Beam-Alt:     the european of the european
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european
+   Conservative:
+   Balanced:     the single
+   Creative:     committee we
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european of the european
+   Conservative:
+   Balanced:     the this
+   Creative:     i has of the that which no there is be be commission
+   Beam:         the european of the european of the
+   Beam-Alt:     the european of the european
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european of the european
+   Conservative: with the european and i which to
+   Balanced:     not on this parliament
+   Creative:     the may of the european
+   Beam:         i of the european
+   Beam-Alt:     the european of the european
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european
+   Conservative: of the european that to be
+   Balanced:     i in the parliament
+   Creative:     at of the they parliament
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+🔍 VOCABULARY DEBUG INFO:
+   UNK token: '<UNK>' (idx: 3)
+   SOS token: '<SOS>' (idx: 1)
+   EOS token: '<EOS>' (idx: 2)
+   PAD token: '<PAD>' (idx: 0)
+   Target vocab size: 10000
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: beam
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: BEAM
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: rope positional encoding
+⚙️  Parameters: 15,053,584
+🎭 Strategy: BEAM
+================================================================================
+🔍 Generating translations with Beam search...
+Beam Translation: 100%|██████████| 10000/10000 [1:45:33<00:00,  1.58it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Mutta se tosiasia, että Azerbaidzan on yhä vielä sotatilassa Armenian kanssa ja että maan läpi on vedetty rintamalinja, estää 20 prosenttia nauttimasta tämän avun siunauksellisuudesta.
+Reference:    In toe draft texts produced by the IGC, Parliament's legislative rights with regard to international agreements should be drastically curtailed.
+Beam        : it is the european of the european of the european of the european of the european of the european of the european of the european of the european of the
+
+--- Example 2 ---
+Source (FI):  Tietoisuuden puuttuminen ja tämän aiheuttama hitaus heijastuvat Euroopan unioniin ja neuvoston päätöksentekoon.
+Reference:    This lack of awareness of the issues and the inertia it engenders, are transmitted to the decision-making instances of the European Union at Council level.
+Beam        : the european of the european of the european
+
+--- Example 3 ---
+Source (FI):  Eurooppa-neuvoston kokouksen jälkeen neuvoston puheenjohtaja laatii kertomuksen parlamentille.
+Reference:    The Council Presidency reports to Parliament after the European Council meeting.
+Beam        : the european of the european of the european of the
+
+--- Example 4 ---
+Source (FI):  Ympäristön suojelun alalla toimivien valtiosta riippumattomien järjestöjen toiminnan edistämiseksi tarkoitetun ne livuotisen yhteisön toimintaohjelman laatiminen näyttää mielestäni tässä yhteydessä olevan hyödyllinen toimen pide, jotta voidaan välttää ympäristönsuojeluyhdistyksille tarkoitettujen yhteisön varojen väärä kohdentaminen.
+Reference:    Ten out of 21 amendments were already accepted after the first reading, and I hope very much that possibly a majority of the six amendments I shall introduce today will again accord with the Commission's intentions.
+Beam        : it is the european of the european of the european of the european of the european of the european of the european of the european of the european of the european of the european of the
+
+--- Example 5 ---
+Source (FI):  rittävien maksujen tai sosiaaliturvamaksujen eriyt­täminen ovat näistä yleisimpiä.
+Reference:    The differentiation of premiums for insuring against occupational accidents and diseases or of contributions to the social security system is the most common.
+Beam        : the european of the european of the european
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (beam): 0.0438
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0438
+  Exact Match:     1.94%
+  Word Accuracy:   3.45%
+  Avg Length:      17.0 words (ref: 23.3)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/beam_test_results.csv
+  📊 Summary metrics: /kaggle/working/beam_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (beam): 0.0438
+📊 Test Sentences: 10,000
+🎭 Strategy: BEAM
