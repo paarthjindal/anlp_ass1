@@ -213,12 +213,12 @@ class ModelTester:
                 logits = decoder_output[0, -1, :] / temperature
 
                 # Apply UNK penalty (strong penalty to avoid UNK tokens)
-                logits[unk_idx] -= 10.0
+                logits[unk_idx] -= 5
 
                 # Apply repetition penalty for recently generated tokens
                 for token_idx in list(generated_tokens)[-5:]:  # Penalize last 5 unique tokens
                     if token_idx in generated_tokens:
-                        logits[token_idx] -= 1.0
+                        logits[token_idx] -= 0.3
 
                 # Convert to probabilities
                 probs = F.softmax(logits, dim=-1)
@@ -445,6 +445,10 @@ class ModelTester:
         """Creative top-k strategy: k=100, p=0.95, temp=1.1"""
         return self.translate_top_k(sentence, max_length=max_length, k=100, p=0.95, temperature=1.1)
 
+    def translate_beam_comparable(self, sentence, max_length=50):
+        """Beam-comparable top-k strategy: k=4, p=1.0, temp=1.0"""
+        return self.translate_top_k(sentence, max_length=max_length, k=4, p=1.0, temperature=1.0)
+
     def calculate_accuracy_metrics(self, predictions, references):
         """Calculate accuracy metrics"""
         exact_matches = 0
@@ -494,6 +498,7 @@ class ModelTester:
                 conservative_trans = self.translate_conservative(sentence)
                 balanced_trans = self.translate_balanced(sentence)
                 creative_trans = self.translate_creative(sentence)
+                beam_comparable_trans = self.translate_beam_comparable(sentence)
                 beam_trans = self.translate_beam_search(sentence, beam_size=4)
                 beam_alt_trans = self.translate_beam_search_alternative(sentence, beam_size=6)
 
@@ -501,6 +506,7 @@ class ModelTester:
                 print(f"   Conservative: {conservative_trans}")
                 print(f"   Balanced:     {balanced_trans}")
                 print(f"   Creative:     {creative_trans}")
+                print(f"   Beam-Comp:    {beam_comparable_trans}")
                 print(f"   Beam:         {beam_trans}")
                 print(f"   Beam-Alt:     {beam_alt_trans}")
 
@@ -522,6 +528,7 @@ class ModelTester:
                     'Conservative': conservative_trans,
                     'Balanced': balanced_trans,
                     'Creative': creative_trans,
+                    'Beam_Comparable': beam_comparable_trans,
                     'Beam': beam_trans,
                     'Beam_Alternative': beam_alt_trans
                 })
@@ -534,6 +541,7 @@ class ModelTester:
                     'Conservative': f"Error: {e}",
                     'Balanced': f"Error: {e}",
                     'Creative': f"Error: {e}",
+                    'Beam_Comparable': f"Error: {e}",
                     'Beam': f"Error: {e}",
                     'Beam_Alternative': f"Error: {e}"
                 })
@@ -621,6 +629,11 @@ class ModelTester:
             print("🔍 Generating translations with Beam search...")
             for src_sentence in tqdm(test_src, desc="Beam Translation"):
                 pred = self.translate_beam_search(src_sentence, beam_size=4)
+                predictions.append(pred)
+        elif strategy == 'beam_comparable':
+            print("🎯 Generating translations with Beam-comparable top-k...")
+            for src_sentence in tqdm(test_src, desc="Beam-Comparable Translation"):
+                pred = self.translate_beam_comparable(src_sentence)
                 predictions.append(pred)
         else:
             print(f"❌ Unknown strategy: {strategy}")
@@ -777,7 +790,7 @@ def main():
 
         # You can modify these parameters:
         USE_FULL_TEST = True           # Set to False for faster testing with subset
-        STRATEGY = 'greedy'          # Choose: 'greedy', 'conservative', 'balanced', 'creative', 'beam'
+        STRATEGY = 'beam_comparable'   # Choose: 'greedy', 'conservative', 'balanced', 'creative', 'beam', 'beam_comparable'
 
         print(f"Selected strategy: {STRATEGY}")
 

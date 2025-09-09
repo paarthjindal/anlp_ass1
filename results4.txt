@@ -189,3 +189,31 @@ Balanced    : is i be the european of the commission that must there on the woul
 🎯 BLEU Score (balanced): 0.0906
 📊 Test Sentences: 10,000
 🎭 Strategy: BALANCED
+
+
+Below scores are for one more execution of the code
+
+
+📊 BERTScore Results:
+   Precision: 0.6970
+   Recall:    0.6872
+   F1:        0.6917
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.1054
+  BERTScore F1:    0.6917
+  BERTScore Prec:  0.6970
+  BERTScore Rec:   0.6872
+  Exact Match:     0.14%
+  Word Accuracy:   2.13%
+  Avg Length:      23.3 words (ref: 23.3)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/balanced_test_results.csv
+  📊 Summary metrics: /kaggle/working/balanced_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (balanced): 0.1054
+📊 Test Sentences: 10,000
+🎭 Strategy: BALANCED

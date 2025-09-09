@@ -1,0 +1,226 @@
+position bias with beam comparable
+
+📁 Data path: /kaggle/input/anlp-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
+📥 Loading model from /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: relative_bias
+🔧 Relative attention buckets: 32
+🔧 Relative attention max distance: 128
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,078,064
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european parliament
+   Conservative: - we in the european of a european parliament
+   Balanced:     i we must
+   Creative:     their by also as first
+   Beam-Comp:    i
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european parliament
+   Conservative: of the european
+   Balanced:     the commission
+   Creative:     debates be this not of the
+   Beam-Comp:    i would of the european
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european parliament
+   Conservative: to the union
+   Balanced:     the european
+   Creative:     i would
+   Beam-Comp:    the european parliament
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european parliament
+   Conservative: we can
+   Balanced:     in must that would its mr
+   Creative:     we have which with the only
+   Beam-Comp:    the european parliament
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european parliament
+   Conservative: in the of the european
+   Balanced:     is the parliament
+   Creative:     the european have
+   Beam-Comp:    it is
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european parliament
+   Conservative: the european is to
+   Balanced:     this is to parliament
+   Creative:     we he is report
+   Beam-Comp:    i of the european parliament
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european parliament
+   Conservative: the parliament is the european for
+   Balanced:     the european out of the same
+   Creative:     the european of can is on the proposal of a very the new of
+   Beam-Comp:    the european parliament
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european parliament
+   Conservative: the european
+   Balanced:     the european parliament
+   Creative:     if with european been they
+   Beam-Comp:    we
+   Beam:         the european parliament
+   Beam-Alt:     the european parliament
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+🔍 VOCABULARY DEBUG INFO:
+   UNK token: '<UNK>' (idx: 3)
+   SOS token: '<SOS>' (idx: 1)
+   EOS token: '<EOS>' (idx: 2)
+   PAD token: '<PAD>' (idx: 0)
+   Target vocab size: 10000
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: beam_comparable
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: BEAM_COMPARABLE
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: relative_bias positional encoding
+⚙️  Parameters: 15,078,064
+🎭 Strategy: BEAM_COMPARABLE
+================================================================================
+🎯 Generating translations with Beam-comparable top-k...
+Beam-Comparable Translation: 100%|██████████| 10000/10000 [21:06<00:00,  7.90it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Sallinette minun toteavan, että olemme tietoisia siitä Cillerin aikaansaamasta edistyksestä - edistyksen alusta - hänen ilmoittaessaan, että vuoden 1997 loppuun mennessä hyväksytään laki, joka poistaa ilmaisunvapauden esteet Turkissa.
+Reference:    A training programme, the STOP programme, has been organized, the aim of this being the exchange of information and training in the campaign against trafficking in human beings and the sexual exploitation of minors.
+Beam_comparable: the commission of the european parliament of the european union of the council in a is the european parliament
+
+--- Example 2 ---
+Source (FI):  0 Kirjoittanut teokset "Forestry in Europe" ja "Fish Farming in Europe"; ollut mukana kirjoittamassa teosta 'Towards a Community Rural Policy'.
+Reference:    0 Author of 'Forestry in Europe' and 'Fish Farming in Europe ; co-author of 'Towards a Community Rural Policy'.
+Beam_comparable: i would the european parliament to this is in the commission and the european union of the commission to be and in the commission to be a of the commission of the european of the european of the commission of the commission and the committee of the commission and the
+
+--- Example 3 ---
+Source (FI):  Nicholson (I-EDN). - (EN) Arvoisa rouva puhemies, olen kuunnellut tämänaamuista keskustelua erittäin kiinnostuneena toivoen, että Euroopan kansalaisten huoliin esitet-
+Reference:    I am tired of hearing political leaders say that Europe wants to combat international organized crime
+Beam_comparable: i i have the commission is a european parliament
+
+--- Example 4 ---
+Source (FI):  Komission nykyinen politiikka sallia jäsenvaltioille erilaisia tukijärjestelmiä, meidän on torjuttava, herra Bangemann, koska se johtaa kilpailun vääristymiseen yhteisön sisällä ja jopa muodostaa vaaran, että varustamot muutta vat maasta toiseen Euroopan unionin sisällä, jos esimerkiksi Hollannissa verotusjärjestelmä on houkuttelevampi kuin jossakin toisessa suuressa jäsenmaassa.
+Reference:    There is no doubt that unemployment is the major challenge that faces us in the next decade, and frankly in relative terms Europe is bad at creating jobs.
+Beam_comparable: i the commission to be a is that it is a the commission and the european parliament
+
+--- Example 5 ---
+Source (FI):  Kehityksen kärjistyneet ongelmat, tuotantoinvestointien supistuminen, työttömyyden räjähdysmäinen nousu, köyhyyden leviäminen ja sosiaalisen turvajärjestelmän
+Reference:    Wolf (V). - (DE) Mr President, ladies and gentlemen, it is right that we should deal jointly with the stability pact and the broad economic policy guidelines. Already last year, the House was advocating a policy mix as a means of
+Beam_comparable: the european parliament of the commission of the european parliament and the council of the commission and the commission to be of the community
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (beam_comparable): 0.1105
+
+🤖 Calculating BERTScore...
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+Warning: Empty candidate sentence detected; setting raw BERTscores to 0.
+📊 BERTScore Results:
+   Precision: 0.6866
+   Recall:    0.6693
+   F1:        0.6773
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.1105
+  BERTScore F1:    0.6773
+  BERTScore Prec:  0.6866
+  BERTScore Rec:   0.6693
+  Exact Match:     0.44%
+  Word Accuracy:   2.53%
+  Avg Length:      18.8 words (ref: 23.3)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/beam_comparable_test_results.csv
+  📊 Summary metrics: /kaggle/working/beam_comparable_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (beam_comparable): 0.1105
+📊 Test Sentences: 10,000
+🎭 Strategy: BEAM_COMPARABL
+
+
+currently top k is getting better result because of stricter 
