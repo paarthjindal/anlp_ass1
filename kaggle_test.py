@@ -31,7 +31,7 @@ try:
     from decoder import TransformerDecoder, Transformer
     from utils import (
         load_data, split_data, create_vocabulary, TransformerDataset,
-        create_padding_mask, create_look_ahead_mask, calculate_bleu,
+        create_padding_mask, create_look_ahead_mask, calculate_bleu, calculate_bert_score,
         indices_to_sentence, Vocabulary
     )
     print("✅ Successfully imported custom modules")
@@ -553,215 +553,6 @@ class ModelTester:
 
         return results
 
-    def comprehensive_evaluation(self, use_full_test=True, top_k_only=False):
-        """Comprehensive evaluation on test set with top-k sampling strategies"""
-        print("\n" + "="*80)
-        print("🔬 COMPREHENSIVE MODEL EVALUATION WITH TOP-K SAMPLING")
-        print("="*80)
-
-        # Load test data
-        print("📁 Loading test data...")
-        try:
-            en_file = f"{DATA_PATH}/EUbookshop.en"
-            fi_file = f"{DATA_PATH}/EUbookshop.fi"
-
-            if not os.path.exists(en_file) or not os.path.exists(fi_file):
-                print(f"❌ Data files not found:")
-                print(f"   Expected: {en_file}")
-                print(f"   Expected: {fi_file}")
-                return None
-
-            en_sentences, fi_sentences = load_data(en_file, fi_file)
-            train_data, val_data, test_data = split_data(en_sentences, fi_sentences, train_ratio=0.8, val_ratio=0.1)
-
-            if use_full_test:
-                test_src = test_data[1]  # Finnish
-                test_tgt = test_data[0]  # English
-                print(f"✅ Using full test set: {len(test_src):,} sentences")
-            else:
-                test_src = test_data[1][:100]
-                test_tgt = test_data[0][:100]
-                print(f"✅ Using test subset: {len(test_src)} sentences")
-
-        except Exception as e:
-            print(f"❌ Error loading data: {e}")
-            return None
-
-        # Initialize prediction storage
-        predictions = {
-            'greedy': [],
-            'conservative': [],
-            'balanced': [],
-            'creative': [],
-            'beam': []
-        }
-        references = []
-
-        print(f"\n📊 Test set size: {len(test_src)} sentence pairs")
-        print(f"🤖 Model: {self.config['pos_encoding_type']} positional encoding")
-        print(f"⚙️  Parameters: {sum(p.numel() for p in self.model.parameters()):,}")
-
-        if top_k_only:
-            print("🚀 Mode: TOP-K ONLY (Conservative, Balanced, Creative)")
-            strategies = ['conservative', 'balanced', 'creative']
-        else:
-            print("🔍 Mode: COMPREHENSIVE (All strategies + Beam search)")
-            strategies = ['greedy', 'conservative', 'balanced', 'creative', 'beam']
-
-        print("="*80)
-
-        # Generate translations for each strategy
-        for strategy in strategies:
-            if strategy == 'greedy':
-                print("⚡ Phase: Greedy decoding (k=1)...")
-                for i, src_sentence in enumerate(tqdm(test_src, desc="Greedy")):
-                    pred = self.translate_greedy(src_sentence)
-                    predictions['greedy'].append(pred)
-                    if len(references) <= i:
-                        references.append(test_tgt[i])
-
-            elif strategy == 'conservative':
-                print("🛡️  Phase: Conservative top-k (k=20, p=0.8)...")
-                for i, src_sentence in enumerate(tqdm(test_src, desc="Conservative")):
-                    pred = self.translate_conservative(src_sentence)
-                    predictions['conservative'].append(pred)
-                    if len(references) <= i:
-                        references.append(test_tgt[i])
-
-            elif strategy == 'balanced':
-                print("⚖️  Phase: Balanced top-k (k=50, p=0.9)...")
-                for i, src_sentence in enumerate(tqdm(test_src, desc="Balanced")):
-                    pred = self.translate_balanced(src_sentence)
-                    predictions['balanced'].append(pred)
-                    if len(references) <= i:
-                        references.append(test_tgt[i])
-
-            elif strategy == 'creative':
-                print("🎨 Phase: Creative top-k (k=100, p=0.95)...")
-                for i, src_sentence in enumerate(tqdm(test_src, desc="Creative")):
-                    pred = self.translate_creative(src_sentence)
-                    predictions['creative'].append(pred)
-                    if len(references) <= i:
-                        references.append(test_tgt[i])
-
-            elif strategy == 'beam':
-                print("🔍 Phase: Beam search (beam_size=4)...")
-                for i, src_sentence in enumerate(tqdm(test_src, desc="Beam")):
-                    pred = self.translate_beam_search(src_sentence, beam_size=4)
-                    predictions['beam'].append(pred)
-                    if len(references) <= i:
-                        references.append(test_tgt[i])
-
-        # Show examples for comparison
-        print(f"\n📝 Translation Examples (first 5):")
-        for i in range(min(5, len(test_src))):
-            print(f"\n--- Example {i+1} ---")
-            print(f"Source (FI):  {test_src[i]}")
-            print(f"Reference:    {references[i]}")
-            for strategy in strategies:
-                if predictions[strategy]:
-                    print(f"{strategy.capitalize():12}: {predictions[strategy][i]}")
-
-        # Calculate metrics
-        print("\n" + "="*80)
-        print("📈 EVALUATION RESULTS - BLEU SCORES")
-        print("="*80)
-
-        bleu_scores = {}
-        for strategy in strategies:
-            if predictions[strategy]:
-                try:
-                    bleu_score = calculate_bleu(predictions[strategy], references)
-                    bleu_scores[strategy] = bleu_score
-                    print(f"  {strategy.capitalize():12}: {bleu_score:.4f}")
-                except Exception as e:
-                    print(f"  {strategy.capitalize():12}: Error - {e}")
-                    bleu_scores[strategy] = 0.0
-
-        # Find best performing strategy
-        if bleu_scores:
-            best_strategy = max(bleu_scores.keys(), key=lambda k: bleu_scores[k])
-            best_bleu = bleu_scores[best_strategy]
-            print(f"\n🏆 Best Strategy: {best_strategy.upper()} with BLEU = {best_bleu:.4f}")
-
-        # Calculate accuracy metrics for best strategies
-        print(f"\n📊 DETAILED METRICS FOR TOP STRATEGIES:")
-
-        # Sort strategies by BLEU score
-        sorted_strategies = sorted([(k, v) for k, v in bleu_scores.items()], key=lambda x: x[1], reverse=True)
-
-        detailed_metrics = {}
-        for strategy, bleu_score in sorted_strategies[:3]:  # Top 3 strategies
-            if predictions[strategy]:
-                exact_match, word_acc = self.calculate_accuracy_metrics(predictions[strategy], references)
-                detailed_metrics[strategy] = {
-                    'bleu': bleu_score,
-                    'exact_match': exact_match,
-                    'word_accuracy': word_acc
-                }
-
-                avg_pred_len = sum(len(s.split()) for s in predictions[strategy]) / len(predictions[strategy])
-                avg_ref_len = sum(len(s.split()) for s in references) / len(references)
-
-                print(f"\n{strategy.upper()} Strategy:")
-                print(f"  BLEU Score:      {bleu_score:.4f}")
-                print(f"  Exact Match:     {exact_match:.2f}%")
-                print(f"  Word Accuracy:   {word_acc:.2f}%")
-                print(f"  Avg Length:      {avg_pred_len:.1f} words (ref: {avg_ref_len:.1f})")
-
-        # Final summary
-        print(f"\n🏆 FINAL EVALUATION SUMMARY:")
-        print(f"  Dataset: Finnish → English")
-        print(f"  Test sentences: {len(test_src):,}")
-        print(f"  Strategies tested: {len(strategies)}")
-        print(f"  Best BLEU score: {best_bleu:.4f} ({best_strategy})")
-        print(f"  Vocab sizes: FI={len(self.src_vocab):,}, EN={len(self.tgt_vocab):,}")
-
-        # Calculate improvement over greedy
-        if 'greedy' in bleu_scores and best_strategy != 'greedy':
-            improvement = best_bleu - bleu_scores['greedy']
-            print(f"  Improvement over greedy: +{improvement:.4f} BLEU ({improvement/bleu_scores['greedy']*100:.1f}%)")
-
-        print("="*80)
-
-        # Save detailed results
-        results_df_data = {
-            'Source_Finnish': test_src,
-            'Reference_English': references
-        }
-
-        for strategy in strategies:
-            if predictions[strategy]:
-                results_df_data[f'{strategy.capitalize()}_Translation'] = predictions[strategy]
-
-        results_df = pd.DataFrame(results_df_data)
-        results_df.to_csv('/kaggle/working/comprehensive_test_results.csv', index=False)
-
-        # Save summary metrics
-        summary = {
-            'test_sentences': len(test_src),
-            'strategies_tested': strategies,
-            'bleu_scores': bleu_scores,
-            'detailed_metrics': detailed_metrics,
-            'best_strategy': best_strategy,
-            'best_bleu_score': best_bleu,
-            'model_parameters': sum(p.numel() for p in self.model.parameters()),
-            'positional_encoding': self.config['pos_encoding_type'],
-            'vocab_sizes': {
-                'finnish': len(self.src_vocab),
-                'english': len(self.tgt_vocab)
-            }
-        }
-
-        with open('/kaggle/working/top_k_evaluation_summary.json', 'w') as f:
-            json.dump(summary, f, indent=2)
-
-        print(f"\n💾 Results saved:")
-        print(f"  📄 Detailed results: /kaggle/working/comprehensive_test_results.csv")
-        print(f"  📊 Summary metrics: /kaggle/working/top_k_evaluation_summary.json")
-
-        return summary
-
     def single_strategy_evaluation(self, strategy='greedy', use_full_test=True):
         """Single strategy evaluation for focused testing"""
         print(f"\n" + "="*80)
@@ -853,6 +644,25 @@ class ModelTester:
             print(f"❌ Error calculating BLEU: {e}")
             bleu_score = 0.0
 
+        # Calculate BERTScore
+        print(f"\n🤖 Calculating BERTScore...")
+        try:
+            bert_scores = calculate_bert_score(predictions, references, device=self.device)
+            print(f"📊 BERTScore Results:")
+            print(f"   Precision: {bert_scores['precision_avg']:.4f}")
+            print(f"   Recall:    {bert_scores['recall_avg']:.4f}")
+            print(f"   F1:        {bert_scores['f1_avg']:.4f}")
+        except Exception as e:
+            print(f"❌ Error calculating BERTScore: {e}")
+            bert_scores = {
+                'precision_avg': 0.0,
+                'recall_avg': 0.0,
+                'f1_avg': 0.0,
+                'precision_scores': [0.0] * len(predictions),
+                'recall_scores': [0.0] * len(predictions),
+                'f1_scores': [0.0] * len(predictions)
+            }
+
         # Calculate additional metrics
         exact_match, word_acc = self.calculate_accuracy_metrics(predictions, references)
         avg_pred_len = sum(len(s.split()) for s in predictions) / len(predictions)
@@ -860,6 +670,9 @@ class ModelTester:
 
         print(f"\n📊 DETAILED METRICS:")
         print(f"  BLEU Score:      {bleu_score:.4f}")
+        print(f"  BERTScore F1:    {bert_scores['f1_avg']:.4f}")
+        print(f"  BERTScore Prec:  {bert_scores['precision_avg']:.4f}")
+        print(f"  BERTScore Rec:   {bert_scores['recall_avg']:.4f}")
         print(f"  Exact Match:     {exact_match:.2f}%")
         print(f"  Word Accuracy:   {word_acc:.2f}%")
         print(f"  Avg Length:      {avg_pred_len:.1f} words (ref: {avg_ref_len:.1f})")
@@ -877,6 +690,9 @@ class ModelTester:
             'strategy': strategy,
             'test_sentences': len(test_src),
             'bleu_score': bleu_score,
+            'bert_score_f1': bert_scores['f1_avg'],
+            'bert_score_precision': bert_scores['precision_avg'],
+            'bert_score_recall': bert_scores['recall_avg'],
             'exact_match_accuracy': exact_match,
             'word_accuracy': word_acc,
             'avg_prediction_length': avg_pred_len,
@@ -975,28 +791,6 @@ def main():
             print(f"🎯 BLEU Score ({STRATEGY}): {summary['bleu_score']:.4f}")
             print(f"📊 Test Sentences: {summary['test_sentences']:,}")
             print(f"🎭 Strategy: {STRATEGY.upper()}")
-
-        # Uncomment below for comprehensive evaluation (all strategies)
-        """
-        print("\n" + "="*60)
-        print("🔬 Running comprehensive evaluation...")
-
-        comprehensive_summary = tester.comprehensive_evaluation(
-            use_full_test=USE_FULL_TEST,
-            top_k_only=False
-        )
-
-        if comprehensive_summary:
-            print("\n✅ Comprehensive testing completed!")
-            print(f"🎯 Best BLEU Score: {comprehensive_summary['best_bleu_score']:.4f} ({comprehensive_summary['best_strategy']})")
-            print(f"📊 Test Sentences: {comprehensive_summary['test_sentences']:,}")
-            print(f"🚀 Strategies tested: {', '.join(comprehensive_summary['strategies_tested'])}")
-
-            # Show all BLEU scores
-            print(f"\n📊 All BLEU Scores:")
-            for strategy, score in comprehensive_summary['bleu_scores'].items():
-                print(f"   {strategy.capitalize()}: {score:.4f}")
-        """
 
     except Exception as e:
         print(f"❌ Error during testing: {e}")

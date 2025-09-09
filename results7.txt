@@ -24,19 +24,19 @@
     }
 
 
-📁 Data path: /kaggle/input/anlp1-ass1
+📁 Data path: /kaggle/input/anlp-ass1
 📁 Working directory: /kaggle/working
 ✅ Successfully imported custom modules
 🔧 Configuration:
-   DATA_PATH: /kaggle/input/anlp1-ass1
+   DATA_PATH: /kaggle/input/anlp-ass1
 ============================================================
 🚀 Starting Transformer Testing on Kaggle
 ============================================================
 🔧 Using device: cuda
    GPU: Tesla T4
    CUDA version: 12.4
-📥 Using model: /kaggle/working/best_model.pt
-📥 Loading model from /kaggle/working/best_model.pt
+📥 Using model: /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
+📥 Loading model from /kaggle/input/pos_bias/pytorch/default/1/best_model_poss_bias.pt
 ✅ Model loaded successfully!
 🔧 Positional encoding: relative_bias
 🔧 Relative attention buckets: 32
@@ -54,65 +54,65 @@
 
 1. Finnish: Hyvää huomenta
    Greedy:       the european parliament
-   Conservative: is the european parliament that of the european
-   Balanced:     the european in
-   Creative:     other
+   Conservative: we have in the member
+   Balanced:     the parliament
+   Creative:     it that the european if
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 2. Finnish: Kiitos paljon
    Greedy:       the european parliament
-   Conservative: we have to the european
-   Balanced:
-   Creative:     - should
+   Conservative: - is a european parliament
+   Balanced:     president, of the european parliament
+   Creative:     the time
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 3. Finnish: Nähdään myöhemmin
    Greedy:       the european parliament
-   Conservative: in this is parliament
-   Balanced:     i have
-   Creative:     in economic of the
+   Conservative: we have to the commission
+   Balanced:     the european
+   Creative:     this is by
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 4. Finnish: Mikä on nimesi?
    Greedy:       the european parliament
-   Conservative: we
-   Balanced:     it in a in the there for and that of the european parliament
-   Creative:     is a make
+   Conservative:
+   Balanced:     i will and of the european
+   Creative:     are mr this of the commission and an than
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 5. Finnish: Pidän kahvista
    Greedy:       the european parliament
-   Conservative: would of the european parliament
-   Balanced:     the european parliament and was of the national
-   Creative:     but of the commission of we
+   Conservative: we is have
+   Balanced:     i member
+   Creative:     it is
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 6. Finnish: Sää on kaunis tänään
    Greedy:       the european parliament
-   Conservative: i member not is it
-   Balanced:     all it is that will of to the
-   Creative:     is a commission their its is public on to the so which the only with the common it on the european parliament as
+   Conservative: in the european parliament
+   Balanced:     - to take be in this a council to by the european parliament and the necessary as the need
+   Creative:     of is i a the european we
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 7. Finnish: Voitko auttaa minua?
    Greedy:       the european parliament
-   Conservative: i is in the committee
-   Balanced:     i of the european we to be
-   Creative:     you and the legal like
+   Conservative: in the european of the union
+   Balanced:     we this member would
+   Creative:     i
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
 8. Finnish: Olen opiskelija
    Greedy:       the european parliament
-   Conservative: i
-   Balanced:     european parliament
-   Creative:     in the community
+   Conservative: the report
+   Balanced:     is on the european parliament
+   Creative:     what for the
    Beam:         the european parliament
    Beam-Alt:     the european parliament
 
@@ -127,10 +127,10 @@
 
 ============================================================
 🎯 Running single strategy evaluation...
-Selected strategy: beam
+Selected strategy: conservative
 
 ================================================================================
-🎯 SINGLE STRATEGY EVALUATION: BEAM
+🎯 SINGLE STRATEGY EVALUATION: CONSERVATIVE
 ================================================================================
 📁 Loading test data...
 ✅ Using full test set: 10,000 sentences
@@ -138,54 +138,54 @@ Selected strategy: beam
 📊 Test set size: 10000 sentence pairs
 🤖 Model: relative_bias positional encoding
 ⚙️  Parameters: 15,078,064
-🎭 Strategy: BEAM
+🎭 Strategy: CONSERVATIVE
 ================================================================================
-🔍 Generating translations with Beam search...
-Beam Translation: 100%|██████████| 10000/10000 [1:06:21<00:00,  2.51it/s]
+🛡️  Generating translations with Conservative top-k...
+Conservative Translation: 100%|██████████| 10000/10000 [24:43<00:00,  6.74it/s]
 
 📝 Translation Examples (first 5):
 
 --- Example 1 ---
-Source (FI):  Lisäksi meidän ei tulisi vain perustaa tällaisen käytön edistämiseen tähtäävää ohjelmaa valvomatta tuon ohjelman tehokkuutta.
-Reference:    Its chairman, who is leaving Parliament to take up other duties, has just postponed the final meeting, at which proposals were supposed to have been made.
-Beam        : the commission of the european parliament
+Source (FI):  Palontorjuntaan on kiinnitettävä enemmän huomiota ennaltaehkäisyä ja valvontaa kannustamalla.
+Reference:    Methods for conserving genetic resources must be strengthened by encouraging seed selection and improvement.
+Conservative: it is this by the
 
 --- Example 2 ---
-Source (FI):  Euroopan Parlamentin keskustelut
-Reference:    Debates of the European Parliament
-Beam        : debates of the european parliament
+Source (FI):  Neljänneksi valitetaan myönteisen ilmapiirin puutetta. Opiskelijoiden kouluttaminen merkitsee kuitenkin kilpailukyvyn lisääntymistä ja individualismia, ja tämä voi haitata mainitun myönteisen ilmapiirin syntymistä.
+Reference:    I therefore read Mr Rovsing's report with great interest, and I can say that I accept, that the Socialist .group accepts, many of the observations, reflections and proposals contained in that report.
+Conservative: i the european is the new to be a of the committee for the commission that the commission and it a of the european
 
 --- Example 3 ---
-Source (FI):  keita ovat maan sisällä siirtymään joutuneiden ja pakolaisten tukeminen sekä oikeusasiamiehen viraston perustaminen.
-Reference:    ture by Serbia and the European Commission of a financial agreement on the I+A programme for 2007.
-Beam        : the commission of the european parliament
+Source (FI):  Tämän vuoksi meidän on joka tapauksessa huolehdittava siitä, että siirtymäsäännöstöä parannetaan ja yksinkertaistetaan.
+Reference:    We must therefore see to it that the transitional rules are improved and simplified.
+Conservative: we the european be it is in that is a which and with the are in the commission that as is the commission has are to the council of the european by the in the european which that is in this of the member
 
 --- Example 4 ---
-Source (FI):  Arvostan suuresti kaikkien poliittisten ryhmien rakentavaa asennetta, kun ne päättivät harkita vielä uudelleen joitakin äärimmäisiä kan toja.
-Reference:    I rarely refer to particular countries, but allow me to mention my own: Belgium.
-Beam        : the commission of the european parliament
+Source (FI):  Toivonkipinä elää ikuisesti!
+Reference:    If Parliament wants to go to a conciliation procedure that would be interesting -and relevant!
+Conservative: in the commission for the
 
 --- Example 5 ---
-Source (FI):  Ne mitkä nykyään ovat harvinaisuuksia ja nuoriso-, opis kelija- tai harjoittelija-, tutkija- tai dosenttivaihdon pilottiohjelmia, niiden pitäisi olla pääsääntöisiä eikä poikkeuksellisia ohjelmia Euroopan alueella.
-Reference:    To my mind, the European Union and the European Community before that have too long been too concentrated on money and business.
-Beam        : the commission of the european parliament of the european parliament of the european parliament of the european parliament of the european parliament
+Source (FI):  Lisäksi suosittelemme, että näiden tuotteiden kuljetusta varten
+Reference:    Seizures of illegal merchandise in the territory of the Member State.
+Conservative: i the european and we are of the member
 
 📈 EVALUATION RESULTS
 ==================================================
-🎯 BLEU Score (beam): 0.0300
+🎯 BLEU Score (conservative): 0.0897
 
 📊 DETAILED METRICS:
-  BLEU Score:      0.0300
-  Exact Match:     1.91%
-  Word Accuracy:   2.52%
-  Avg Length:      13.4 words (ref: 23.4)
+  BLEU Score:      0.0897
+  Exact Match:     0.15%
+  Word Accuracy:   2.36%
+  Avg Length:      22.4 words (ref: 23.1)
 
 💾 Results saved:
-  📄 Detailed results: /kaggle/working/beam_test_results.csv
-  📊 Summary metrics: /kaggle/working/beam_evaluation_summary.json
+  📄 Detailed results: /kaggle/working/conservative_test_results.csv
+  📊 Summary metrics: /kaggle/working/conservative_evaluation_summary.json
 ================================================================================
 
 ✅ Testing completed successfully!
-🎯 BLEU Score (beam): 0.0300
+🎯 BLEU Score (conservative): 0.0897
 📊 Test Sentences: 10,000
-🎭 Strategy: BEAM
+🎭 Strategy: CONSERVATIVE

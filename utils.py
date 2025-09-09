@@ -212,6 +212,60 @@ def calculate_bleu(predictions: List[str], references: List[str]) -> float:
     """Calculate BLEU score"""
     return corpus_bleu(predictions, [references]).score
 
+def calculate_bert_score(predictions: List[str], references: List[str], model_type="distilbert-base-uncased", device=None):
+    """
+    Calculate BERTScore for predictions vs references
+
+    Args:
+        predictions: List of predicted sentences
+        references: List of reference sentences
+        model_type: BERT model to use for scoring (default: distilbert for speed)
+        device: Device to run on (auto-detected if None)
+
+    Returns:
+        dict: Contains precision, recall, f1 scores (both individual and average)
+    """
+    try:
+        from bert_score import score
+
+        # Calculate BERTScore
+        P, R, F1 = score(predictions, references, model_type=model_type, device=device, verbose=False)
+
+        # Convert to float and calculate averages
+        precision_scores = P.tolist()
+        recall_scores = R.tolist()
+        f1_scores = F1.tolist()
+
+        return {
+            'precision_avg': float(P.mean()),
+            'recall_avg': float(R.mean()),
+            'f1_avg': float(F1.mean()),
+            'precision_scores': precision_scores,
+            'recall_scores': recall_scores,
+            'f1_scores': f1_scores
+        }
+
+    except ImportError:
+        print("⚠️  BERTScore not available. Install with: pip install bert-score")
+        return {
+            'precision_avg': 0.0,
+            'recall_avg': 0.0,
+            'f1_avg': 0.0,
+            'precision_scores': [0.0] * len(predictions),
+            'recall_scores': [0.0] * len(predictions),
+            'f1_scores': [0.0] * len(predictions)
+        }
+    except Exception as e:
+        print(f"❌ Error calculating BERTScore: {e}")
+        return {
+            'precision_avg': 0.0,
+            'recall_avg': 0.0,
+            'f1_avg': 0.0,
+            'precision_scores': [0.0] * len(predictions),
+            'recall_scores': [0.0] * len(predictions),
+            'f1_scores': [0.0] * len(predictions)
+        }
+
 def plot_training_curves(train_losses, val_losses, title="Training Curves"):
     """Plot training and validation loss curves"""
     plt.figure(figsize=(10, 6))

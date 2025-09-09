@@ -1,0 +1,167 @@
+this is of rope and conservative strategy
+
+
+📁 Data path: /kaggle/input/anlp-ass1
+📁 Working directory: /kaggle/working
+✅ Successfully imported custom modules
+🔧 Configuration:
+   DATA_PATH: /kaggle/input/anlp-ass1
+============================================================
+🚀 Starting Transformer Testing on Kaggle
+============================================================
+🔧 Using device: cuda
+   GPU: Tesla T4
+   CUDA version: 12.4
+📥 Using model: /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+📥 Loading model from /kaggle/input/rope_topk/pytorch/default/1/best_model.pt
+✅ Model loaded successfully!
+🔧 Positional encoding: rope
+🔧 Using RoPE (Rotary Position Embeddings)
+📊 Source vocab size: 10,000
+📊 Target vocab size: 10,000
+🤖 Model parameters: 15,053,584
+
+============================================================
+🧪 Testing sample sentences...
+
+============================================================
+🧪 SAMPLE SENTENCE TESTING
+============================================================
+
+1. Finnish: Hyvää huomenta
+   Greedy:       the european
+   Conservative:
+   Balanced:     in the european
+   Creative:     this such on one not
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+2. Finnish: Kiitos paljon
+   Greedy:       the european
+   Conservative:
+   Balanced:     in the european
+   Creative:     in - as
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+3. Finnish: Nähdään myöhemmin
+   Greedy:       the european
+   Conservative: of the
+   Balanced:     is the of the to
+   Creative:     an not
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+4. Finnish: Mikä on nimesi?
+   Greedy:       the european of the european
+   Conservative: i a in the european
+   Balanced:     that the european
+   Creative:     that the in
+   Beam:         the european of the european
+   Beam-Alt:     the european of the european
+
+5. Finnish: Pidän kahvista
+   Greedy:       the european
+   Conservative: the which
+   Balanced:     parliament not which the report our with
+   Creative:     i
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+6. Finnish: Sää on kaunis tänään
+   Greedy:       the european of the european
+   Conservative: as the european and we that it of the european
+   Balanced:     we that the only of the of with for
+   Creative:     the european will in for must the no
+   Beam:         the european of the european of the
+   Beam-Alt:     the european of the european
+
+7. Finnish: Voitko auttaa minua?
+   Greedy:       the european of the european
+   Conservative: of a and this
+   Balanced:     it is
+   Creative:     european be with a are
+   Beam:         i of the european
+   Beam-Alt:     the european of the european
+
+8. Finnish: Olen opiskelija
+   Greedy:       the european
+   Conservative: the commission
+   Balanced:     of the european time
+   Creative:     the we should
+   Beam:         i of the european
+   Beam-Alt:     i of the european
+
+💾 Sample translations saved to /kaggle/working/sample_translations.csv
+
+🔍 VOCABULARY DEBUG INFO:
+   UNK token: '<UNK>' (idx: 3)
+   SOS token: '<SOS>' (idx: 1)
+   EOS token: '<EOS>' (idx: 2)
+   PAD token: '<PAD>' (idx: 0)
+   Target vocab size: 10000
+
+============================================================
+🎯 Running single strategy evaluation...
+Selected strategy: conservative
+
+================================================================================
+🎯 SINGLE STRATEGY EVALUATION: CONSERVATIVE
+================================================================================
+📁 Loading test data...
+✅ Using full test set: 10,000 sentences
+
+📊 Test set size: 10000 sentence pairs
+🤖 Model: rope positional encoding
+⚙️  Parameters: 15,053,584
+🎭 Strategy: CONSERVATIVE
+================================================================================
+🛡️  Generating translations with Conservative top-k...
+Conservative Translation: 100%|██████████| 10000/10000 [32:51<00:00,  5.07it/s]
+
+📝 Translation Examples (first 5):
+
+--- Example 1 ---
+Source (FI):  Ei. Lämmitetäänkö siellä vähemmän?
+Reference:    Even the 'polluter pays' principle is not being applied in the way it should be.
+Conservative: be for the european is of the european of an
+
+--- Example 2 ---
+Source (FI):  Esittelijä Amadeo on oikeutetusti sitä mieltä, että säteilyä tulee rajoittaa.
+Reference:    everything possible to ensure that unnecessary or harm ful examinations are avoided.
+Conservative: in it be a for this of the european have to a to the commission is be to on the committee of the of the european we a of the european
+
+--- Example 3 ---
+Source (FI):  Kysymyksen 45 esittäjä Anne Mcintosh (H-0203/97)
+Reference:    Question No 45 by Anne Mcintosh (H-0203/97) Subject: Draft directive on the sale of consumer goods and associated guarantees
+Conservative: of the european not of a and this
+
+--- Example 4 ---
+Source (FI):  Mulder (ELDR), maataloutta ja maaseudun kehittämistä käsittelevän valiokunnan lausunnon valmistelija. ­ (NL) Arvoisa puhemies, heti kun talousarvioluonnoksen luvut julkaistiin tänä vuonna, maatalousvaliokunta aloitti kes­kustelun niistä.
+Reference:    This means that the budget for 1998 has to be readjusted in the field of agriculture, and it must finally be to the detriment of those products which have been underspend ing most over the last period.
+Conservative: in the european of the european to this with the not
+
+--- Example 5 ---
+Source (FI):  Nykyinen politiikka taas on päinvastoin mennyt kohti vain suurien eurooppalaisten järjestöjen tukemista unohtaen, että maissa, joissa kuluttajansuojajärjestöt ovat pienimpiä ja heikoimpia, ne ovat sitäkin tarpeellisempia.
+Reference:    I believe we must recognize that it is would be too difficult and too expensive to produce a completely harmonized consumer policy and consumer information system, because the needs are simply too varied. But despite this lack of uniformity, we will of course vote in favour of Mr Whitehead's report.
+Conservative: i to the we in the committee that the european of the european that of the european of would and for the - for
+
+📈 EVALUATION RESULTS
+==================================================
+🎯 BLEU Score (conservative): 0.0781
+
+📊 DETAILED METRICS:
+  BLEU Score:      0.0781
+  Exact Match:     0.01%
+  Word Accuracy:   2.37%
+  Avg Length:      18.6 words (ref: 23.1)
+
+💾 Results saved:
+  📄 Detailed results: /kaggle/working/conservative_test_results.csv
+  📊 Summary metrics: /kaggle/working/conservative_evaluation_summary.json
+================================================================================
+
+✅ Testing completed successfully!
+🎯 BLEU Score (conservative): 0.0781
+📊 Test Sentences: 10,000
+🎭 Strategy: CONSERVATIVE

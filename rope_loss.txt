@@ -1,0 +1,12 @@
+rope
+📈 Epoch 6 Summary:
+   Train Loss: 6.1895
+   Best Val Loss: 6.1066
+   Learning Rate: 3.61e-07
+
+
+relative pos bias
+📈 Epoch 14 Summary:
+   Train Loss: 6.0411
+   Best Val Loss: 5.9683
+   Learning Rate: 2.36e-07
